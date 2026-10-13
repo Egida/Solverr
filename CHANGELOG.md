@@ -4,6 +4,8 @@ Solverr follows its own [Semantic Versioning](https://semver.org/), starting at 
 
 ## [Unreleased]
 
+## [1.9.0]
+
 ### Changes
 
 - **The Chrome engine now waits for a page to finish loading and redirecting before reading it, like the Camoufox engine, so pages without a challenge take about half a second longer on Chrome.** A site whose own script checks the browser and then redirects used to come back as the check page from Chrome and as the real page from Camoufox.
