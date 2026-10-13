@@ -62,7 +62,7 @@ Some countries share a timezone definition with a neighbour, which looks wrong b
 
 ## When the lookup fails
 
-If the IP address cannot be looked up, Solverr uses the container's `TZ` for the timezone and `en-US` for the language, logs a warning, and carries on. The request does not fail. Solverr remembers that fallback for only a minute, so the first request after that looks the IP address up again, and a short network outage does not leave the wrong country in place for long.
+If the IP address cannot be looked up, Solverr uses the container's `TZ` for the timezone (when it is a zone name; anything else, such as `UTC0`, becomes `UTC` with a warning) and `en-US` for the language, logs a warning, and carries on. The request does not fail. Solverr remembers that fallback for only a minute, so the first request after that looks the IP address up again, and a short network outage does not leave the wrong country in place for long.
 
 A SOCKS proxy needs PySocks installed for the lookup to work; without it you get the same fallback. When you use a SOCKS proxy, set `BROWSER_TIMEZONE` or `BROWSER_GEO`.
 

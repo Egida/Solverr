@@ -88,7 +88,7 @@ check "rejects an em dash in a docs guide"     1 pre
 reset_repo; mkdir -p "$repo/docs/dev"; stage docs/guide.md 'Point it at example.to for testing.\n'
 check "rejects a site name in a docs guide"    1 pre
 reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md 'Measured against example.to.\n'
-check "leaves docs/dev records alone"          0 pre
+check "allows site names in docs/dev records" 0 pre
 reset_repo
 printf '# Changelog\n\n## [Unreleased]\n\n### Fixes\n\n- **A real headline.** Detail.\n\n## [1.0.0]\n' > "$repo/CHANGELOG.md"; g add CHANGELOG.md
 check "passes a bold CHANGELOG headline"       0 pre
@@ -103,6 +103,59 @@ printf '# Changelog\n\n## [Unreleased]\n\n### Other\n\n- Bumped a dependency.\n\
 check "exempts the Other section"              0 pre
 reset_repo; stage README.md "A line ${em} in a commit.\n"; g commit -q -m "docs: add a line"
 check "range mode rejects a committed em dash" 1 pre HEAD~1..HEAD
+
+# changelog <section> <entry>: stage a CHANGELOG whose [Unreleased] holds one entry, taken verbatim.
+changelog() {
+  reset_repo
+  printf '# Changelog\n\n## [Unreleased]\n\n### %s\n\n%s\n\n## [1.0.0]\n' "$1" "$2" > "$repo/CHANGELOG.md"
+  g add CHANGELOG.md
+}
+changelog Fixes '- **Chrome 1.2 support** now works.'
+check "rejects a stop only after the headline" 1 pre
+changelog Fixes '- **Headline? no**'
+check "rejects a stop inside the headline"     1 pre
+changelog Fixes '- **Set it to "auto."** Detail.'
+check "passes a headline ending inside quotes" 0 pre
+changelog Fixes '- **Set `GEO_IP_LOOKUP_URLS`.** Detail.'
+check "passes a headline ending on code"       0 pre
+
+# 23 characters of headline plus padding: 377 lands exactly on the 400 cap.
+changelog Fixes "- **A real headline.** $(printf '%0377d' 0)"
+check "passes an entry at the length cap"      0 pre
+changelog Fixes "- **A real headline.** $(printf '%0378d' 0)"
+check "rejects an entry over the length cap"   1 pre
+changelog Other "- Bumped a dependency. $(printf '%0378d' 0)"
+check "caps the Other section too"             1 pre
+reset_repo
+printf '# Changelog\n\n## [Unreleased]\n\n## [1.0.0]\n\n### Fixes\n\n- **Released.** %0400d\n' 0 > "$repo/CHANGELOG.md"; g add CHANGELOG.md
+check "leaves released entries uncapped"       0 pre
+
+changelog Fixes '- **A real headline.** Detail.'
+printf '# Changelog\n\n## [Unreleased]\n\n### Fixes\n\n- No headline, unstaged.\n' > "$repo/CHANGELOG.md"
+check "reads the staged CHANGELOG, not a dirty tree" 0 pre
+changelog Fixes '- No bold headline here.'
+printf '# Changelog\n\n## [Unreleased]\n\n### Fixes\n\n- **Fixed, but unstaged.**\n' > "$repo/CHANGELOG.md"
+check "rejects a bad staged CHANGELOG fixed only in the tree" 1 pre
+
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md "A line ${em} in a record.\n"
+check "rejects an em dash in a docs/dev record" 1 pre
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md 'Fixed in #12 upstream.\n'
+check "rejects a bare #N in a docs/dev record" 1 pre
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md 'Ported FlareSolverr/FlareSolverr#1626.\n'
+check "passes owner/repo#N in a docs/dev record" 0 pre
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md 'Fixed in #12 later.\n'; g commit -q -m "docs: add a record"
+check "range mode rejects a committed docs/dev bare #N" 1 pre HEAD~1..HEAD
+
+reset_repo; stage README.md 'Fixed in #12.\n'
+check "rejects a bare #N in the README"        1 pre
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/guide.md 'See #12 for details.\n'
+check "rejects a bare #N in a docs guide"      1 pre
+changelog Fixes '- **Sessions survive a restart.** Reported in #14.'
+check "rejects a bare #N in a CHANGELOG entry" 1 pre
+reset_repo; stage CONTRIBUTING.md 'Reported in unseensnick/Solverr#14.\n'
+check "passes owner/repo#N in CONTRIBUTING"   0 pre
+reset_repo; stage CONTRIBUTING.md 'Never write a bare `#123`.\n'
+check "passes a #N inside a code span"         0 pre
 
 echo ""
 echo "$pass passed, $broke broke"

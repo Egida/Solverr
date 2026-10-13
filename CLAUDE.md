@@ -48,19 +48,21 @@ Two engines behind one interface: `chrome` (Selenium + vendored undetected_chrom
 - `docs/dev/engine-layer-architecture.md`: the rationale behind the law. The divergence measurements against both upstreams, the target seam, the sequencing, and every ruling with the evidence it rests on. Read it before designing anything forward-looking.
 - `docs/dev/upstream-sync.md`: what has been taken from FlareSolverr and Byparr, through which commit, and every deliberate divergence with its reasoning. Read it before calling something drift.
 - `.githooks/`: tracked `commit-msg` and `pre-commit` hooks, plus `tests/run.sh`, which proves each rule still rejects a real violation. Activate with `git config core.hooksPath .githooks`. CI runs the same checks (the Standards and Tests workflows).
-- `.claude/hooks/`: the guards that screen tool calls before they run, so an unexplained `Blocked:` message comes from here. `block-dangerous-commands.sh` covers **both Bash and PowerShell** (matching only one lets a command through the other tool) and refuses a push to `main`, a bare force push (`--force-with-lease` is allowed), merging a PR (`gh pr merge` or through `gh api`), reading secret files through the shell, and the usual destructive deletes. Merging is always the owner's call.
+- `.claude/hooks/`: the guards that screen tool calls before they run, so an unexplained `Blocked:` message comes from here. `block-dangerous-commands.sh` covers **both Bash and PowerShell** (matching only one lets a command through the other tool) and refuses a push to `main`, a bare force push (`--force-with-lease` is allowed), merging a PR (`gh pr merge` or through `gh api`), reading secret files through the shell, and the usual destructive deletes. Shell writes (`sed -i`, redirects, `cp`/`mv`, `Set-Content`) into a protected path get the same deny or ask as Edit and Write, from one table both hooks read, `protected-paths.tsv`. Merging is always the owner's call.
 - `.claude/agents/`: the four review subagents to spawn with the `Agent` tool: `code-reviewer`, `doc-reviewer`, `performance-reviewer`, `security-reviewer`. `/pr-review` runs all four in parallel.
 
 ## Skills
 
 - `/scout`: investigate one non-trivial task, then produce its plan, grounded in `file:line` citations. Use before porting from an upstream or touching the engines, sessions, or the controller.
 - `/code-research`: fan-out research for a broad question spanning many files. `/scout` is for one concrete task.
-- `/deep-audit`: read-only, many-agent audit of a whole range (default the branch against `main`) before a PR or a release. Maps the range and stops for approval, runs fourteen lenses including engine parity and two-ends tracing, refutes every finding before it counts, mutation-checks the range's new tests, and reports. Refuted findings go in its ledger. It never fixes anything.
+- `/deep-audit`: read-only, many-agent audit of a whole range (default the branch against `main`) before a PR or a release. Maps the range and stops for approval, runs fifteen lenses including engine parity and two-ends tracing, refutes high and medium findings before they count (`--quick` runs far fewer agents and verifies only highs), mutation-checks the range's new tests, and reports. Refuted findings go in its ledger. It never fixes anything.
 - `/upstream-audit`: compare against FlareSolverr and Byparr, classify every difference as covered, missing, or deliberate, and check `/v1` compatibility and the dependency pins. Proposes the ledger update.
 - `/live-check`: verify a change against live challenges through an isolated container. The unit tests cannot tell you whether a page still clears; this can.
 - `/release`: cut a version end to end: decide the bump, preflight, tag, then verify the workflows and the published image digests.
 - `/session-handoff`: rewrite `Handoff.md` from verified state, then bring the CHANGELOG, dependent docs, and memory store in line with it.
 - `/pr-review`: review changes via the four specialist agents in parallel.
+- `/debug-fix`: fix a bug: reproduce it, prove the hypothesis, fix it at the origin, pin it with a test seen failing, sweep the other engine for siblings. `--fast` ships a hotfix pull request.
+- `/ship`: commit, push the feature branch, and open the pull request, confirming each step. Never pushes `main` or merges.
 - `/tighten`: trim verbose docs and WHAT comments without losing vital info. Always plans first.
 - `/context-budget`: what this `.claude/` config costs per turn.
 

@@ -56,7 +56,7 @@ Brief one `Agent` with `subagent_type: Explore` per area that applies, all in a 
 | Engine layer | Anything touching an engine, or any port | `.claude/rules/engine-layer.md`, its seam-depth table above all. Shared spine: `src/assembly.py`, `src/pipeline.py`, `src/budget.py`, `src/sessions.py`, `src/config.py`, and `src/dtos.py` for request validation. Per engine: each adapter in `src/engines/`, and each clearing core (Chrome's challenge wait in `_evil_logic` and its turnstile helpers; stealth's `_wait_until_cleared`, the widget measuring in `_widget_box` and the click in `_click_turnstile`). Ask which of those the change touches. A port of a taken-over surface goes into the spine, and a client-visible change lands for both engines in one commit. |
 | Engine and runtime constraints | Anything touching solving | `src/async_runtime.py` (one shared loop), `src/engines/stealth_engine.py` (per-context lock, throwaway click page), `src/session_reaper.py`. Ask what runs on which thread and what is serialized. |
 | Contract surface | Anything reaching a response | `src/dtos.py`, `_to_challenge_resolution` in `src/flaresolverr_service.py`, `utils.object_to_dict`. Ask what an unset field serializes to. |
-| Existing helpers (DRY) | New helper tempting | `src/detection.py`, `src/config.py`, `src/postform.py`, `src/utils.py`. Search before letting the plan invent one. |
+| Existing helpers (DRY) | Always | For every symbol the plan may add, the existing equivalent (`file:line`) or the searches run: name stem, arguments and return type, the rule it encodes, across `src/` (the spine, `detection.py`, `config.py`, `postform.py`, `utils.py`) and both upstreams. |
 | Test coverage | Behavior changes | The browser-free tests (`src/test_*.py`) versus the browser suite (`src/tests.py`). Which one can actually cover the change. |
 
 Brief each agent as a colleague who has not seen this conversation: state the goal, hand over exact paths and git commands, demand `file:line` citations, cap at ~500 words, and ask for a "things I'm uncertain about" section.
@@ -81,7 +81,7 @@ Additions specific to this skill:
 - **A claim without a `file:line` from code actually read** goes in Open questions, never in Findings.
 - **A source contradiction is itself a finding.** When memory, `Handoff.md`, or a doc disagrees with current code, trust the code and record it under Stale docs.
 - **Deferred work is not a defect.** If the deferred or dead-end list from Step 2 already covers something, say so once and move on.
-- **The plan names the helper it reuses**, citing it. A step that invents a utility the repo already has is a failed scout.
+- **The plan names the helper it reuses**, citing it. A step that invents a utility the repo already has is a failed scout. Every step that adds a symbol carries its `Reuse:` line (see `plan-output.md`).
 - **Say whether the change is verifiable without a browser.** If it can only be proven against a live challenge, the plan's last step is `/live-check`, not "run the tests".
 
 ## Step 6: Hand off
@@ -93,7 +93,7 @@ End with one of: **"Ready to implement."**, **"Open questions block implementati
 - Never edits files, never writes code, never calls `EnterPlanMode`.
 - Every claim cites `file:line` from current code. Memory and `Handoff.md` claims are hypotheses until cited.
 - Never fill an unresolved gap with an assumption. Investigate it or surface it.
-- Cap each subagent at ~500 words; the report follows the ~1500 word cap in `plan-output.md`. A bigger task needs decomposition, not a longer report.
+- Cap each subagent at ~500 words; the report follows `plan-output.md`, including its word cap. A bigger task needs decomposition, not a longer report.
 - No interim narration: one sentence when the agents are spawned, then nothing until the report.
 - No em dashes. Commas, parentheses, periods, colons.
 - No assumptions about library behavior. If the plan leans on what Playwright, Selenium, or playwright-captcha does, cite the installed source under `.venv/Lib/site-packages/`, not documentation from memory. Check the package's `.dist-info` version against `requirements.txt` first: the local `.venv` can lag the pin, and then the source it shows is not what ships.

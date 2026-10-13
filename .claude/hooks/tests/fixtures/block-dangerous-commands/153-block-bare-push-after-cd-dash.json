@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push on main after cd -",
+  "stdin": {
+    "cwd": "@FX@/main-repo",
+    "tool_input": {
+      "command": "cd - && git push"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

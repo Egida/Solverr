@@ -1,0 +1,9 @@
+{
+  "name": "allow a source file given a Windows backslash path",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:\\Code\\cloudflare-bypasses\\Solverr\\src\\engines\\chrome_engine.py"
+    }
+  },
+  "expect_exit": 0
+}

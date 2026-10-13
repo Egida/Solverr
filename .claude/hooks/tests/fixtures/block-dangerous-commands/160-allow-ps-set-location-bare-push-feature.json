@@ -1,0 +1,10 @@
+{
+  "name": "allow a bare push after Set-Location into a repo on a feature branch",
+  "stdin": {
+    "tool_input": {
+      "command": "Set-Location ..\\feature-repo; git push"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 0
+}

@@ -84,7 +84,7 @@ Out of the box, Solverr works out the browser's language and timezone from the I
 | `LANG` | none | The browser language for both engines. Accepts `en_US.UTF-8` or `en-US`. |
 | `BROWSER_TIMEZONE` | `auto` | The browser timezone for both engines: a zone name such as `Europe/Berlin`, or `auto` to follow the IP address. |
 | `GEO_IP_LOOKUP_URLS` | none | Comma-separated `https` services to look up the IP address with, tried before the built-in ones, for example `https://icanhazip.com`. |
-| `TZ` | `UTC` | The container's own timezone: used for log timestamps, and for the browser when no timezone can be worked out. For example `TZ=Europe/London`. |
+| `TZ` | `UTC` | The container's own timezone: used for log timestamps, and for the browser when no timezone can be worked out. Use a zone name, for example `TZ=Europe/London`: a value the browsers cannot use, such as `UTC0`, gives them `UTC` instead, with a warning. |
 
 ## Browser behaviour
 

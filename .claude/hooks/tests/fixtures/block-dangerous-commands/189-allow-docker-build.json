@@ -1,0 +1,13 @@
+{
+  "name": "allow a docker build",
+  "stdin": {
+    "tool_input": {
+      "command": "docker build -t solverr:livetest ."
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

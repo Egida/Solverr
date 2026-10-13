@@ -1,0 +1,12 @@
+{
+  "name": "block a delete inside Program Files (x86)",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item -Recurse \"C:\\Program Files (x86)\\Tool\""
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "system directory"
+  ]
+}

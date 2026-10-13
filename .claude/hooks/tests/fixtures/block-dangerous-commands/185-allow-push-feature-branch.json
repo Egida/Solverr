@@ -1,0 +1,13 @@
+{
+  "name": "allow pushing a feature branch by name",
+  "stdin": {
+    "tool_input": {
+      "command": "git push -u origin feat/session-reaper"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

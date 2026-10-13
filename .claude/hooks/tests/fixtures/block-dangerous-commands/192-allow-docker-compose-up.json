@@ -1,0 +1,13 @@
+{
+  "name": "allow docker compose up",
+  "stdin": {
+    "tool_input": {
+      "command": "docker compose up -d --build"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

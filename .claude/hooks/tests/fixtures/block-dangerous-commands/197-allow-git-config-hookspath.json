@@ -1,0 +1,13 @@
+{
+  "name": "allow activating the tracked git hooks",
+  "stdin": {
+    "tool_input": {
+      "command": "git config core.hooksPath .githooks"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

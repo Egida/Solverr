@@ -15,7 +15,7 @@ The repo's own rules are the baseline, so read the relevant one before flagging 
 ## Operating principles
 
 - State assumptions explicitly. If multiple readings of the code are possible, surface them. Don't pick silently.
-- Surgical scope. Only flag lines that changed or directly relate. Ignore pre-existing issues outside, including upstream-inherited code the diff didn't touch.
+- Surgical scope. Only flag lines that changed or directly relate. Ignore pre-existing issues outside, including upstream-inherited code the diff didn't touch. The exception is the reuse search, which reads the whole tree (see "Reuse").
 - Verify before flagging. Cite file:line. If you can't verify, say so.
 - Confidence threshold. Only ship findings you're at least 80% sure are real. Drop the rest.
 
@@ -48,6 +48,11 @@ Run `git diff --name-only` for changed files. Read each, grep for related patter
 - A capability that silently does nothing on one engine instead of being routed or refused by name (`tabs_till_verify` on stealth is the rule's own example).
 - Shared storage that each engine interprets its own way; spine code reimplementing a clearing core; a re-proposed `SessionRef`.
 - A second per-engine test where one test in `src/test_engine_conformance.py` (driven by `HARNESSES` in `src/engine_fakes.py`) would pin both. A new test whose PR does not say it was seen red with its production clause deleted has not been verified by mutation.
+
+## Reuse
+
+- For every new function or class in the diff, grep the whole tree (not just the diff) for an existing equivalent by name stem, arguments and return type. A duplicate is a finding: name the existing symbol at file:line. The spine, `detection.py`, `config.py`, `postform.py` and `utils.py` are the usual homes.
+- A private upstream helper copied instead of shared.
 
 ## /v1 compatibility
 

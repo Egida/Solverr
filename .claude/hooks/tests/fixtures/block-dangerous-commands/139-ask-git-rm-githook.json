@@ -1,0 +1,12 @@
+{
+  "name": "ask before git rm of a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "git rm .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

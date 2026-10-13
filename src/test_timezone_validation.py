@@ -32,10 +32,20 @@ def _with_zones(zones=ZONES):
     return patch.object(geo, '_known_zones', lambda: zones)
 
 
+def _tzdata_ships(*names):
+    """A system whose tzdata lists exactly `names`, whatever the host has."""
+    geo.reset_cache()
+    return patch.object(geo.zoneinfo, 'available_timezones', lambda: set(names))
+
+
 class PinnedZone(unittest.TestCase):
 
     def setUp(self):
         config._rejected_zones.clear()
+
+    def tearDown(self):
+        # A patched tzdata list is cached; the next test must not see it.
+        geo.reset_cache()
 
     def test_a_known_zone_is_kept(self):
         with _env(BROWSER_TIMEZONE='Europe/Stockholm'), _with_zones():
@@ -61,6 +71,18 @@ class PinnedZone(unittest.TestCase):
                 config.browser_timezone()
             with self.assertNoLogs(level='WARNING'):
                 config.browser_timezone()
+
+    def test_a_link_name_the_system_lists_is_kept(self):
+        # Europe/Oslo is a link in tzdata, so the canonical table leaves it out
+        # while every browser accepts it.
+        with _env(BROWSER_TIMEZONE='Europe/Oslo'), _with_zones(), _tzdata_ships('Europe/Oslo'):
+            self.assertEqual(config.browser_timezone(), 'Europe/Oslo')
+
+    def test_a_tzdata_file_that_is_not_a_zone_is_dropped(self):
+        # posix/ and right/ copies load as files; no browser takes them.
+        with _env(BROWSER_TIMEZONE='posix/Europe/Oslo'), _with_zones(), \
+             _tzdata_ships('Europe/Oslo'), self.assertLogs(level='WARNING'):
+            self.assertIsNone(config.browser_timezone())
 
     def test_auto_is_not_checked_against_the_table(self):
         with _env(BROWSER_TIMEZONE='auto'), _with_zones():

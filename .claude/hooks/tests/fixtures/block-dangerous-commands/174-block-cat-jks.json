@@ -1,0 +1,12 @@
+{
+  "name": "block cat of a jks keystore",
+  "stdin": {
+    "tool_input": {
+      "command": "cat release.jks"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "secret"
+  ]
+}

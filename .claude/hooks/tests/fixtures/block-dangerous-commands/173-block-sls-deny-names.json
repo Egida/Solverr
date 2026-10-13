@@ -1,0 +1,12 @@
+{
+  "name": "block Select-String over the local deny list",
+  "stdin": {
+    "tool_input": {
+      "command": "Select-String token .githooks/deny-names.local"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "secret"
+  ]
+}

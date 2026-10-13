@@ -1,0 +1,12 @@
+{
+  "name": "ask before perl -pi on a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "perl -pi -e s/a/b/ .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

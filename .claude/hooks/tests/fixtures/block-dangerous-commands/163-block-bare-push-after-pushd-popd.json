@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push after pushd and popd return to a repo on main",
+  "stdin": {
+    "tool_input": {
+      "command": "pushd ../feature-repo && popd && git push"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

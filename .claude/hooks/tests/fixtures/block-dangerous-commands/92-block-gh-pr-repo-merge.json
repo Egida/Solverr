@@ -1,0 +1,12 @@
+{
+  "name": "block gh pr --repo before merge",
+  "stdin": {
+    "tool_input": {
+      "command": "gh pr --repo owner/repo merge 71 --squash"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "owner's call"
+  ]
+}

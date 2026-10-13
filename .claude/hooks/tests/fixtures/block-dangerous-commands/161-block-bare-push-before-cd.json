@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push that runs before a cd into a feature repo",
+  "stdin": {
+    "tool_input": {
+      "command": "git push && cd ../feature-repo"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "allow docker logs with stderr folded in",
+  "stdin": {
+    "tool_input": {
+      "command": "docker logs solverr-livetest 2>&1 | tail -50"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

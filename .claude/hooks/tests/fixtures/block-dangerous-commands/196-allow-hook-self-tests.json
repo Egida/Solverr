@@ -1,0 +1,13 @@
+{
+  "name": "allow both hook self-tests",
+  "stdin": {
+    "tool_input": {
+      "command": "bash .githooks/tests/run.sh && bash .claude/hooks/tests/run-all.sh"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

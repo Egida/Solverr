@@ -1,0 +1,13 @@
+{
+  "name": "allow a heredoc commit message",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"$(cat <<'EOF'\nfeat(sessions): reap idle browsers\n\nThe reaper now runs on both engines.\nEOF\n)\""
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

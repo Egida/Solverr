@@ -1,0 +1,12 @@
+{
+  "name": "ask before sed -i on a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "sed -i s/a/b/ .githooks/commit-msg"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

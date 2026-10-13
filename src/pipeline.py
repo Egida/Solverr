@@ -33,6 +33,7 @@ class Step(Enum):
     """Something only the engine can do. The order they appear in is the rule."""
     NAVIGATE = auto()
     SET_COOKIES = auto()   # carries the cookies the caller supplied
+    SETTLE = auto()        # wait, bounded, for the page to stop loading and moving
 
 
 class Look(Enum):
@@ -98,6 +99,25 @@ def verdict(*, turnstile_is_a_challenge: bool):
             return Verdict.CHALLENGE, is_turnstile, selector
 
     return Verdict.NONE, is_turnstile, None
+
+
+def settled_verdict(*, turnstile_is_a_challenge: bool):
+    """`verdict`, taken a second time after the page settles if the first finds
+    nothing.
+
+    A clean first look is not yet the page the client should get. A challenge
+    or widget injected after load is not in the DOM yet, and a site's own
+    script guard redirects once its check runs, so the document read at load
+    is the guard and not the page it was guarding. Only a clean look waits:
+    a challenge is already being acted on.
+
+    Driven by `run` or `run_async` below rather than called directly.
+    """
+    found = yield from verdict(turnstile_is_a_challenge=turnstile_is_a_challenge)
+    if found[0] is Verdict.NONE:
+        yield Step.SETTLE, None
+        found = yield from verdict(turnstile_is_a_challenge=turnstile_is_a_challenge)
+    return found
 
 
 def run(handlers: dict, kernel=None, **kwargs):

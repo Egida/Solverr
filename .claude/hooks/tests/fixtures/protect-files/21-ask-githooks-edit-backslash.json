@@ -1,0 +1,12 @@
+{
+  "name": "ask before editing a git hook source by absolute backslash path",
+  "stdin": {
+    "tool_input": {
+      "file_path": "E:\\Code\\cloudflare-bypasses\\Solverr\\.githooks\\commit-msg"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

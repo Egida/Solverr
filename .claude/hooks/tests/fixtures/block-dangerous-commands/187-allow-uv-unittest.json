@@ -1,0 +1,13 @@
+{
+  "name": "allow the browser-free suite",
+  "stdin": {
+    "tool_input": {
+      "command": "PYTHONPATH=src uv run --no-project python -m unittest discover -s src -p 'test_*.py' -t src"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

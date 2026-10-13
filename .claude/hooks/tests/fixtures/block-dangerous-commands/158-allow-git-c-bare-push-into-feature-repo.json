@@ -1,0 +1,10 @@
+{
+  "name": "allow a bare push through git -C into a repo on a feature branch",
+  "stdin": {
+    "tool_input": {
+      "command": "git -C ../feature-repo push origin HEAD"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 0
+}

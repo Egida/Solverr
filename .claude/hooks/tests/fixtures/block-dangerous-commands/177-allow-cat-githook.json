@@ -1,0 +1,13 @@
+{
+  "name": "allow reading a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "cat .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

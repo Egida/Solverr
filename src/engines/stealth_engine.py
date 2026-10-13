@@ -213,7 +213,12 @@ class StealthContext:
             # page.content() would hand back the viewer's markup instead of the
             # payload. With it off, JSON renders as text in a <pre>, which is
             # what the Chrome engine already returns for the same URL.
-            extra_prefs={"devtools.jsonview.enabled": False},
+            # HTTPS-First upgrades an http:// navigation, meets the challenge's
+            # 403, and retries over http as a second navigation, which aborts
+            # goto() with "interrupted by another navigation" before any solving
+            # starts. Chrome loads the same http:// URL and solves it.
+            extra_prefs={"devtools.jsonview.enabled": False,
+                         "dom.security.https_first": False},
         )
         self.browser = await self._ip.__aenter__()
         self.context = await self.browser.new_context()
@@ -484,15 +489,8 @@ class StealthEngine(Engine):
             if utils.get_config_log_html():
                 logging.debug(f"Response HTML:\n{await page.content()}")
 
-            kind, is_turnstile = await self._detect_settled(page)
-            if kind == "none":
-                # An async challenge or widget (e.g. a Turnstile injected via api.js
-                # after domcontentloaded) may not be in the DOM yet; settle and recheck.
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=_NETWORKIDLE_MS)
-                except Exception:
-                    logging.debug("networkidle wait timed out")
-                kind, is_turnstile = await self._detect_settled(page)
+            kind, is_turnstile = await self._detect_settled(
+                page, kernel=pipeline.settled_verdict)
 
             if kind == "denied":
                 raise Exception(pipeline.BLOCKED_MESSAGE)
@@ -876,9 +874,9 @@ class StealthEngine(Engine):
         ) as solver:
             await solver.solve_captcha(captcha_container=page, captcha_type=captcha_type)
 
-    async def _detect_settled(self, page) -> Tuple[str, bool]:
+    async def _detect_settled(self, page, kernel=pipeline.verdict) -> Tuple[str, bool]:
         """``_detect``, retried once when the page moves under it."""
-        return await self._past_navigation(lambda: self._detect(page))
+        return await self._past_navigation(lambda: self._detect(page, kernel))
 
     async def _past_navigation(self, read):
         """Run a page read, looking again once if the page moved under it.
@@ -897,18 +895,25 @@ class StealthEngine(Engine):
                 logging.debug("a page read raced a navigation, retrying: %s", e)
                 await asyncio.sleep(0.5)
 
-    async def _detect(self, page) -> Tuple[str, bool]:
+    async def _detect(self, page, kernel=pipeline.verdict) -> Tuple[str, bool]:
         """Return (kind, is_turnstile) where kind is 'denied' | 'challenge' | 'none'.
 
         The verdict rule is shared with the Chrome engine (pipeline.py); only the
-        two looks below are this engine's. turnstile_is_a_challenge is True here
-        because a bare widget is reachable: the checkbox is clicked by coordinate
-        and needs no tab count from the caller.
+        looks and the settle below are this engine's. turnstile_is_a_challenge is
+        True here because a bare widget is reachable: the checkbox is clicked by
+        coordinate and needs no tab count from the caller.
         """
+        async def settle(_arg):
+            try:
+                await page.wait_for_load_state("networkidle", timeout=_NETWORKIDLE_MS)
+            except Exception:
+                logging.debug("networkidle wait timed out")
+
         found, is_turnstile, _reason = await pipeline.run_async({
             pipeline.Look.TITLE: lambda _arg: page.title(),
             pipeline.Look.SELECTOR: lambda selector: _present(page, selector),
-        }, turnstile_is_a_challenge=self.presses_checkbox_unaided)
+            pipeline.Step.SETTLE: settle,
+        }, kernel=kernel, turnstile_is_a_challenge=self.presses_checkbox_unaided)
         if found is pipeline.Verdict.DENIED:
             return "denied", False
         return ("challenge" if found is pipeline.Verdict.CHALLENGE else "none"), is_turnstile

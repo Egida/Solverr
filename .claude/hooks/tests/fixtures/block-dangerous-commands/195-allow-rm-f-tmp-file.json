@@ -1,0 +1,13 @@
+{
+  "name": "allow rm -f of a named temp file",
+  "stdin": {
+    "tool_input": {
+      "command": "rm -f /tmp/solverr-probe.json"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

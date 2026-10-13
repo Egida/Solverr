@@ -1,0 +1,13 @@
+{
+  "name": "block PowerShell Type reading an ssh key",
+  "stdin": {
+    "tool_input": {
+      "command": "Type id_rsa"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}
