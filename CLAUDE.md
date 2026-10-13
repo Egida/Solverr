@@ -61,6 +61,8 @@ Two engines behind one interface: `chrome` (Selenium + vendored undetected_chrom
 - `/release`: cut a version end to end: decide the bump, preflight, tag, then verify the workflows and the published image digests.
 - `/session-handoff`: rewrite `Handoff.md` from verified state, then bring the CHANGELOG, dependent docs, and memory store in line with it.
 - `/pr-review`: review changes via the four specialist agents in parallel.
+- `/debug-fix`: fix a bug: reproduce it, prove the hypothesis, fix it at the origin, pin it with a test seen failing, sweep the other engine for siblings. `--fast` ships a hotfix pull request.
+- `/ship`: commit, push the feature branch, and open the pull request, confirming each step. Never pushes `main` or merges.
 - `/tighten`: trim verbose docs and WHAT comments without losing vital info. Always plans first.
 - `/context-budget`: what this `.claude/` config costs per turn.
 
