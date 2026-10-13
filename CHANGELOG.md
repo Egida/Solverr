@@ -14,7 +14,7 @@ Solverr follows its own [Semantic Versioning](https://semver.org/), starting at 
 
 - **An address the Chrome engine cannot reach now fails the request instead of sometimes answering "ok" with Chrome's own error page as the response.**
 - **The Camoufox engine now loads `http://` addresses behind a Cloudflare challenge instead of failing every time.** Plain `http://` pages without a challenge also load about three seconds faster on it.
-- **The Chrome engine now returns the Turnstile token of a widget that solves itself, as the Camoufox engine already did.** A widget that needs pressing, with no `tabs_till_verify` sent, now costs Chrome up to 5 seconds before the page comes back.
+- **The Chrome engine now returns the Turnstile token of a widget that solves itself, as the Camoufox engine already did, so a widget that needs pressing costs Chrome up to 5 seconds when no `tabs_till_verify` is sent.**
 - **`BROWSER_TIMEZONE` now accepts every timezone name the system knows, including `Europe/Oslo` and `UTC`, which it used to ignore with a warning.**
 - **A `TZ` the browsers cannot use, such as `UTC0`, now gives them `UTC` with a warning instead of being passed to them unchanged.**
 
