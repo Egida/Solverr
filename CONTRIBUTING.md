@@ -66,7 +66,7 @@ If a commit is rejected, reword it with `git commit --amend`, or `git rebase -i`
 
 ## The CHANGELOG
 
-Add a bullet to `CHANGELOG.md` under `## [Unreleased]` only when someone running Solverr, or calling its API, could notice the change. Put it under `Additions`, `Changes`, or `Fixes`, and lead with a bold headline that says what the user gets and ends in a period. The bold headline is the entire release note, so anything a deployer must act on (a new variable, a changed default) goes inside it. Tests, CI, documentation and tooling changes get no entry. If you are unsure, leave it out and the maintainer will add it.
+Add a bullet to `CHANGELOG.md` under `## [Unreleased]` only when someone running Solverr, or calling its API, could notice the change. Put it under `Additions`, `Changes`, or `Fixes`, and lead with a bold headline that says what the user gets and ends in a period, with at most one short sentence after it (the commit check caps an entry at 400 characters). The bold headline is the entire release note, so anything a deployer must act on (a new variable, a changed default) goes inside it. Tests, CI, documentation and tooling changes get no entry. If you are unsure, leave it out and the maintainer will add it.
 
 ## Documentation
 

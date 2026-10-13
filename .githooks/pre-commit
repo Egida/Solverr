@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Solverr docs enforcement (see .claude/rules/workflow.md: "CHANGELOG" and "Public-facing naming").
-# Lints staged CHANGELOG.md, README.md, CONTRIBUTING.md, CLAUDE.md and the user guides (docs/*.md,
-# not docs/dev/, which are developer records):
+# Lints staged CHANGELOG.md, README.md, CONTRIBUTING.md, CLAUDE.md and the user guides (docs/*.md):
 #   both     - no target-site names or scraping vocabulary in newly added lines, no em dash.
 #   CHANGELOG - every new [Unreleased] entry under Additions / Changes / Fixes leads with a
-#               self-contained bold headline ending in . ! or ? (Other is exempt).
+#               self-contained bold headline ending in . ! or ? (Other is exempt), and every
+#               [Unreleased] entry stays under a length cap.
+# The developer records (docs/dev/*.md) may name sites, but their added lines get the em dash and
+# bare #N checks.
 # Tracked here as the source of truth; activate on a clone with:
 #   git config core.hooksPath .githooks
 #
@@ -20,10 +22,14 @@ if [ -n "$range" ]; then
   changed() { git diff --name-only "$range"; }
   staged() { git diff --name-only "$range" | grep -qx "$1"; }
   added()  { git diff -U0 "$range" -- "$1" | grep -E '^\+[^+]' | sed 's/^+//'; }
+  # CI checks out the range's tip, so the working tree is the content under review.
+  changelog() { cat CHANGELOG.md; }
 else
   changed() { git diff --cached --name-only; }
   staged() { git diff --cached --name-only | grep -qx "$1"; }
   added()  { git diff --cached -U0 -- "$1" | grep -E '^\+[^+]' | sed 's/^+//'; }
+  # The index, not the working tree: a fix left unstaged must not pass for what is being committed.
+  changelog() { git show :CHANGELOG.md; }
 fi
 
 # Heuristic, not a name list, so this file never becomes the thing it prevents. Extend locally via
@@ -31,6 +37,17 @@ fi
 name_patterns='(^|[^A-Za-z0-9./@-])[a-z0-9][a-z0-9-]{1,}\.(to|st|se|nl|cc|ws|eu|si|mx|nu|tv|onion)([^A-Za-z0-9]|$)|scrap(e|er|ers|ing)|torrent|magnet:'
 local_deny="$(dirname "$0")/deny-names.local"
 [ -f "$local_deny" ] && name_patterns="$name_patterns|$(paste -sd'|' "$local_deny")"
+
+# check_em_dash <file> <added lines>
+check_em_dash() {
+  local em
+  em=$(printf '%s\n' "$2" | grep -n '—' || true)
+  if [ -n "$em" ]; then
+    echo "$1: contains an em dash; use commas, parentheses, periods, or colons:" >&2
+    printf '%s\n' "$em" | head -5 >&2
+    problems=1
+  fi
+}
 
 for f in CHANGELOG.md README.md CONTRIBUTING.md CLAUDE.md $(changed | grep -E '^docs/[^/]+\.md$'); do
   staged "$f" || continue
@@ -44,27 +61,51 @@ for f in CHANGELOG.md README.md CONTRIBUTING.md CLAUDE.md $(changed | grep -E '^
     problems=1
   fi
 
-  em=$(printf '%s\n' "$new" | grep -n '—' || true)
-  if [ -n "$em" ]; then
-    echo "$f: contains an em dash; use commas, parentheses, periods, or colons:" >&2
-    printf '%s\n' "$em" | head -5 >&2
+  check_em_dash "$f" "$new"
+done
+
+# Developer records measure against real sites, so the naming rule stays off here. A bare #N is
+# checked because these files render on GitHub, where it links to an unrelated Solverr issue; the
+# owner/repo#N form is stripped first, the same rule .githooks/commit-msg applies.
+for f in $(changed | grep -E '^docs/dev/[^/]+\.md$'); do
+  staged "$f" || continue
+  new=$(added "$f")
+  [ -n "$new" ] || continue
+
+  check_em_dash "$f" "$new"
+
+  refs=$(printf '%s\n' "$new" | sed -E 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g' \
+    | grep -nE '#[0-9]+([^0-9A-Za-z]|$)' || true)
+  if [ -n "$refs" ]; then
+    echo "$f: a bare '#N' links to a Solverr issue; use the owner/repo#N form:" >&2
+    printf '%s\n' "$refs" | head -5 >&2
     problems=1
   fi
 done
 
 # CHANGELOG [Unreleased] entries: benefit-first bold headline, self-contained, sentence-ending.
+# The stop must be the headline's last character, so "**Chrome 1.2 support** more" fails. Closing
+# quotes, a paren or a backtick may follow it, since a headline can end on a quoted value. Bracket
+# expressions instead of backslash escapes, because awk -v would eat the escapes.
+#
+# Cap: 400 characters for the whole entry line, Other included. workflow.md allows a bold headline
+# and one short sentence; measured over the released non-Other entries, headline plus first sentence
+# runs to 256 at the median and 345 at p90, and 90 of 93 fit in 400. Solverr's headlines run longer
+# than a usual project's because the release note is the headline alone, so a deployer-facing
+# variable has to sit inside it. A 400 cap still rejects the multi-sentence entries (20 of 93) that
+# grew past the rule, the longest at 859.
 if staged CHANGELOG.md; then
-  issues=$(awk '
+  issues=$(changelog | awk -v headline='^- [*][*][^*]+[.!?]["'"'"'`)]*[*][*]' -v cap=400 '
     /^## \[/            { in_unreleased = ($0 ~ /\[Unreleased\]/) }
     /^### /             { section = $2 }
     in_unreleased && /^- / {
-      exempt = (section == "Other")
-      if (!exempt) {
-        if ($0 !~ /^- \*\*/)                 print NR ": entry does not start with a bold headline: " $0
-        else if ($0 !~ /\*\*[^*]*[.!?]\*\*|\*\*[^*]*[.!?][^*]*\*\*/) print NR ": headline does not end in . ! or ?: " $0
+      if (length($0) > cap) print NR ": entry is " length($0) " chars (cap " cap "); keep it to the headline and one short sentence: " $0
+      if (section != "Other") {
+        if ($0 !~ /^- \*\*/)        print NR ": entry does not start with a bold headline: " $0
+        else if ($0 !~ headline)   print NR ": headline does not end in . ! or ?: " $0
       }
     }
-  ' CHANGELOG.md || true)
+  ' || true)
   if [ -n "$issues" ]; then
     echo "CHANGELOG [Unreleased] entry issues (see .claude/rules/workflow.md):" >&2
     printf '%s\n' "$issues" | head -8 >&2
