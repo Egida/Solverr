@@ -1,6 +1,6 @@
 ---
 name: deep-audit
-description: Read-only, many-agent audit of a whole range of work (default the current branch against main) for bugs, misconfiguration, missing wiring, dead code, rule violations, and drift between the Chrome and stealth engines. Runs a Workflow that slices the range, points fourteen lenses at it (including two-ends tracing, where independent agents start at the write side and the read side of one value and a third compares them), refutes high and medium findings before they count, mutation-checks the range's new tests, and reports. A --quick mode reads the same range with far fewer agents and verifies only high findings. Never edits code; the owner decides what gets fixed. Use when the user asks for a broad audit, a pre-release or pre-PR audit, or "check that all the changes work together". NOT for one diff (/pr-review), drift against FlareSolverr or Byparr (/upstream-audit), or one concrete task (/scout).
+description: Read-only, many-agent audit of a whole range of work (default the current branch against main) for bugs, misconfiguration, missing wiring, dead code, duplicated code, rule violations, and drift between the Chrome and stealth engines. Runs a Workflow that slices the range, points fifteen lenses at it (including two-ends tracing, where independent agents start at the write side and the read side of one value and a third compares them), refutes high and medium findings before they count, mutation-checks the range's new tests, and reports. A --quick mode reads the same range with far fewer agents and verifies only high findings. Never edits code; the owner decides what gets fixed. Use when the user asks for a broad audit, a pre-release or pre-PR audit, or "check that all the changes work together". NOT for one diff (/pr-review), drift against FlareSolverr or Byparr (/upstream-audit), or one concrete task (/scout).
 argument-hint: "[<rev>..<rev> | <path> | <surface>] [--quick] [--lenses a,b] [--no-mutate] [--yes]"
 disable-model-invocation: false
 allowed-tools:
@@ -36,7 +36,7 @@ raised to match, it is "Dynamic workflow size" in the app's config.
   seam-depth table in `.claude/rules/engine-layer.md` and "Where things live" in `CLAUDE.md`, then
   treat it as a path scope. If it resolves to nothing, ask.
 - **`--quick`**: one map agent at medium effort; one sweep per code slice covering correctness,
-  concurrency, security, dead code and the slice's own wiring; one agent each for wiring, all rule
+  concurrency, security, dead code and the slice's own wiring; one agent each for wiring, duplication, all rule
   files, parity with sibling sites, tests, docs, tooling and replaced upstream behaviour; one agent per
   traced value, at most five. No `performance` lens. Only high findings are verified, by one skeptic
   each; medium findings are listed unverified. No critic round. It still reads the whole range.
@@ -59,6 +59,7 @@ raised to match, it is "Dynamic workflow size" in the app's config.
 | `performance` | code slices the map tags `hotpath` (`performance-reviewer`) | Browser launches, the `maxTimeout` budget, blocking the stealth loop, lock scope, unbounded growth |
 | `concurrency` | each code slice | Waitress threads racing on shared state, the reaper against a session in use, locks held across I/O, floating tasks on the stealth loop, cleanup outside `finally` |
 | `dead` | each code slice | Unused code, settings, env vars and branches, with a mandatory whole-tree re-search behind every "unused" |
+| `dry` | each code slice (quick: one agent for all of it) | Duplication per `code-quality.md` "DRY, with a receipt": new declarations, or rules restated inline, that an existing symbol already covers by name stem, signature or the rule they encode, across `src/` and both upstreams, and a rule written once per engine that belongs in the spine |
 | `rules` | `engine-layer`, `code-quality`, `architecture` and `error-handling` over the range; `security` only over slices tagged `untrusted`, `testing` only over tests slices | `engine-layer`, `code-quality`, `architecture`, `error-handling`, `security`, `testing`, checked line by line |
 | `docs` | each docs slice (`doc-reviewer`) | Claims in the README, CHANGELOG, `CLAUDE.md`, rules, skills and `docs/dev` that current code contradicts, with counts re-derived |
 | `tests` | each tests slice | Tests that cannot fail, over-claiming names, per-engine pairs that should be one conformance case, and a reasoned mutation of up to five |

@@ -31,7 +31,7 @@ const SIBLING_BATCH = 10
 const PARITY_BATCH = 10
 const ALWAYS_RULES = ['engine-layer.md', 'code-quality.md', 'architecture.md', 'error-handling.md']
 const TAGS = ['untrusted', 'hotpath']
-const ALL_LENSES = ['correctness', 'security', 'performance', 'concurrency', 'dead', 'rules', 'docs', 'tests', 'tooling', 'wiring', 'parity', 'sibling', 'upstream', 'twoends']
+const ALL_LENSES = ['correctness', 'security', 'performance', 'concurrency', 'dead', 'dry', 'rules', 'docs', 'tests', 'tooling', 'wiring', 'parity', 'sibling', 'upstream', 'twoends']
 
 // Finders get the parked list but not the ledger: only a verifier needs a past refutation, and the
 // ledger is long enough that carrying it in every finder prompt was a large share of a run's cost.
@@ -61,6 +61,7 @@ const LENS_BRIEFS = {
   performance: { agentType: 'performance-reviewer', brief: 'Find real bottlenecks: extra browser launches, work that spends the maxTimeout budget twice, anything blocking the single stealth event loop, locks held across I/O or a whole solve, waitress threads held longer than a solve needs, and caches, dicts or label sets with no bound.' },
   concurrency: { brief: 'Hunt ordering and lifecycle bugs: two waitress threads racing on shared module state without a lock; a session found and then used in separate lock acquisitions, so the reaper or the cap can act in between (src/test_session_reaping.py shows the deterministic way to prove a race); a lock held across a socket write or a browser call; a coroutine not awaited, or a task nobody holds, on the stealth loop; AsyncRuntime.run called from the loop thread itself; a deadline computed on one clock and compared on another; a browser, context, page or temp directory that leaks when a launch or solve fails part-way (cleanup belongs in finally). Name the interleaving that breaks and what the client sees.' },
   dead: { brief: 'Find dead and unused code the range added or left behind: unused functions, parameters, constants, environment variables and config readers, branches that can no longer be reached, commented-out blocks. Before calling anything unused, search the WHOLE repository, including src/test_*.py, src/engine_fakes.py, .github/, .githooks/, .claude/, Dockerfile, docker-compose.yml, README.md and docs/; bottle route and plugin decorators, getattr, and names read from the environment all count as uses. "Nothing calls X" is the claim class that fails most, so put exactly what you searched in evidenceDetail.' },
+  dry: { brief: 'Find duplicated code and duplicated rules the range added, per the DRY rule in .claude/rules/code-quality.md ("DRY, with a receipt"). For each top-level def or class the range added (git diff ' + RANGE + ' and its "+" declaration lines), search the whole tree for an existing equivalent three ways: by name stem, by arguments and return type, and by the rule it encodes (the same key, constant, condition, selector list or formula restated under another name). Search all of src/, the shared spine first (assembly.py, pipeline.py, budget.py, sessions.py), then detection.py, config.py, postform.py and utils.py, and ../FlareSolverr and ../Byparr for an inherited shape. Also report a condition, constant or formula the range restated inline inside existing code when it already lives somewhere callable. A finding names both sites and says which one should call the other, or which spine module both should call. Also report two declarations the range added that restate each other, a private upstream helper copied rather than shared without a stated reason, and one rule written once per engine where .claude/rules/engine-layer.md says it belongs in the spine or in one conformance test. Not findings: the two clearing cores, which that file declines to merge, and three similar lines the rule prefers over a helper used once.' },
   rules: { brief: 'Audit against the rule files named below. Read each one first and turn it into a checklist, then walk the code the range changed. Each finding quotes a few words of the exact rule it breaks. Rules a hook already enforces (em dashes, commit message shape, site names in docs) are findings only where the hook cannot see them.' },
   docs: { agentType: 'doc-reviewer', brief: 'Check every claim in the docs in this slice against current code: files, symbols, environment variables and their defaults, counts, behaviour. Re-derive any stated count rather than trusting it. Also check claims in CLAUDE.md, .claude/rules and .claude/skills about code or tooling the range changed, and that CONTRIBUTING.md and .github/pull_request_template.md still match .claude/rules/workflow.md.' },
   tests: { brief: 'Audit the tests in this slice: tests that cannot fail (asserting the value just set, asserting a mock was called without checking its arguments, a loop that never iterates), names that claim more than the body checks, a rule for both engines pinned by a hand-maintained per-engine pair instead of one case in src/test_engine_conformance.py, and a rule for both engines pinned on only one. For up to five new tests, do a reasoned mutation: name the production clause the test pins and say whether deleting it would turn the test red. If it would not, that is a finding, labelled traced.' },
@@ -182,6 +183,7 @@ function planTasks(map, lenses) {
     if (['correctness', 'concurrency', 'security', 'dead'].some(l => on.has(l))) {
       for (const s of code) add('sweep', s.id, findingsPrompt(SWEEP_BRIEF, sliceText(s)))
     }
+    if (on.has('dry') && code.length) add('dry', 'duplication across the range', findingsPrompt(LENS_BRIEFS.dry.brief, whole))
     if (on.has('wiring')) add('wiring', 'packaging, config and contract', findingsPrompt(WIRING_TASKS.map(w => w.brief).join('\n\n'), `The whole range ${SCOPE}.`))
     if (on.has('rules')) {
       const rules = [...ALWAYS_RULES, ...Object.keys(TAGGED_RULES).filter(r => ruleHits(r).length)]
@@ -199,7 +201,7 @@ function planTasks(map, lenses) {
     return tasks
   }
 
-  for (const lens of ['correctness', 'concurrency', 'dead']) {
+  for (const lens of ['correctness', 'concurrency', 'dead', 'dry']) {
     if (on.has(lens)) for (const s of code) add(lens, s.id, findingsPrompt(LENS_BRIEFS[lens].brief, sliceText(s)), LENS_BRIEFS[lens].agentType)
   }
   if (on.has('security')) for (const s of tagged(code, 'untrusted')) add('security', s.id, findingsPrompt(LENS_BRIEFS.security.brief, sliceText(s)), LENS_BRIEFS.security.agentType)
