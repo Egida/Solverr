@@ -146,6 +146,17 @@ check "passes owner/repo#N in a docs/dev record" 0 pre
 reset_repo; mkdir -p "$repo/docs/dev"; stage docs/dev/record.md 'Fixed in #12 later.\n'; g commit -q -m "docs: add a record"
 check "range mode rejects a committed docs/dev bare #N" 1 pre HEAD~1..HEAD
 
+reset_repo; stage README.md 'Fixed in #12.\n'
+check "rejects a bare #N in the README"        1 pre
+reset_repo; mkdir -p "$repo/docs/dev"; stage docs/guide.md 'See #12 for details.\n'
+check "rejects a bare #N in a docs guide"      1 pre
+changelog Fixes '- **Sessions survive a restart.** Reported in #14.'
+check "rejects a bare #N in a CHANGELOG entry" 1 pre
+reset_repo; stage CONTRIBUTING.md 'Reported in unseensnick/Solverr#14.\n'
+check "passes owner/repo#N in CONTRIBUTING"   0 pre
+reset_repo; stage CONTRIBUTING.md 'Never write a bare `#123`.\n'
+check "passes a #N inside a code span"         0 pre
+
 echo ""
 echo "$pass passed, $broke broke"
 [ "$broke" -eq 0 ]

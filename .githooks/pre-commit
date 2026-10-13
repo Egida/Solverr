@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Solverr docs enforcement (see .claude/rules/workflow.md: "CHANGELOG" and "Public-facing naming").
 # Lints staged CHANGELOG.md, README.md, CONTRIBUTING.md, CLAUDE.md and the user guides (docs/*.md):
-#   both     - no target-site names or scraping vocabulary in newly added lines, no em dash.
+#   both     - no target-site names or scraping vocabulary in newly added lines, no em dash, no
+#              bare #N.
 #   CHANGELOG - every new [Unreleased] entry under Additions / Changes / Fixes leads with a
 #               self-contained bold headline ending in . ! or ? (Other is exempt), and every
 #               [Unreleased] entry stays under a length cap.
@@ -49,6 +50,21 @@ check_em_dash() {
   fi
 }
 
+# check_bare_refs <file> <added lines>
+# A bare #N renders on GitHub as a link to an unrelated Solverr issue, and in a release note too.
+# The owner/repo#N form is stripped first, the same rule .githooks/commit-msg applies, and so are
+# code spans, which GitHub does not link (CONTRIBUTING.md writes the rule itself as `#123`).
+check_bare_refs() {
+  local refs
+  refs=$(printf '%s\n' "$2" | sed -E -e 's/`[^`]*`//g' -e 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g' \
+    | grep -nE '#[0-9]+([^0-9A-Za-z]|$)' || true)
+  if [ -n "$refs" ]; then
+    echo "$1: a bare '#N' links to a Solverr issue; use the owner/repo#N form:" >&2
+    printf '%s\n' "$refs" | head -5 >&2
+    problems=1
+  fi
+}
+
 for f in CHANGELOG.md README.md CONTRIBUTING.md CLAUDE.md $(changed | grep -E '^docs/[^/]+\.md$'); do
   staged "$f" || continue
   new=$(added "$f")
@@ -62,25 +78,17 @@ for f in CHANGELOG.md README.md CONTRIBUTING.md CLAUDE.md $(changed | grep -E '^
   fi
 
   check_em_dash "$f" "$new"
+  check_bare_refs "$f" "$new"
 done
 
-# Developer records measure against real sites, so the naming rule stays off here. A bare #N is
-# checked because these files render on GitHub, where it links to an unrelated Solverr issue; the
-# owner/repo#N form is stripped first, the same rule .githooks/commit-msg applies.
+# Developer records measure against real sites, so the naming rule stays off here.
 for f in $(changed | grep -E '^docs/dev/[^/]+\.md$'); do
   staged "$f" || continue
   new=$(added "$f")
   [ -n "$new" ] || continue
 
   check_em_dash "$f" "$new"
-
-  refs=$(printf '%s\n' "$new" | sed -E 's@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+@@g' \
-    | grep -nE '#[0-9]+([^0-9A-Za-z]|$)' || true)
-  if [ -n "$refs" ]; then
-    echo "$f: a bare '#N' links to a Solverr issue; use the owner/repo#N form:" >&2
-    printf '%s\n' "$refs" | head -5 >&2
-    problems=1
-  fi
+  check_bare_refs "$f" "$new"
 done
 
 # CHANGELOG [Unreleased] entries: benefit-first bold headline, self-contained, sentence-ending.
