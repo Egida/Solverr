@@ -140,6 +140,13 @@ class ResolvedTimezoneTest(unittest.TestCase):
         with _env(TZ='Europe/Oslo'), patch.object(geo, '_from_egress', return_value=(None, None)):
             self.assertEqual(_tz(PROXY), 'Europe/Oslo')
 
+    def test_failed_resolution_with_a_posix_tz_falls_back_to_utc(self):
+        # The C library reads TZ=UTC0; Playwright refuses it as a timezone id.
+        with _env(TZ='UTC0'), patch.object(geo, '_from_egress', return_value=(None, None)), \
+             patch.object(geo, '_known_zones', lambda: {'Europe/Oslo'}), \
+             self.assertLogs(level='WARNING'):
+            self.assertEqual(_tz(PROXY), 'UTC')
+
     def test_failed_resolution_without_tz_falls_back_to_utc(self):
         with _env(), patch.object(geo, '_from_egress', return_value=(None, None)):
             self.assertEqual(_tz(PROXY), 'UTC')
@@ -684,3 +691,19 @@ class ExtendLookupUrlsTest(unittest.TestCase):
         with self.assertLogs(level='WARNING') as logs:
             self.extended(types.SimpleNamespace(), GEO_IP_LOOKUP_URLS='https://echo.tld/ip')
         self.assertIn('GEO_IP_LOOKUP_URLS has no effect', str(logs.output))
+
+
+class LoadResolverTest(unittest.TestCase):
+    """A stealth stack that is absent degrades quietly; one that moved does not."""
+
+    def test_a_reshaped_library_is_reported(self):
+        # invisible_core 36 dropped resolve_session_locale. Without a warning
+        # every browser lands on the container's zone and en-US unexplained.
+        with patch.dict(sys.modules, {'invisible_core': types.ModuleType('invisible_core')}), \
+             self.assertLogs(level='WARNING'):
+            geo._load_resolver()
+
+    def test_a_missing_library_stays_quiet(self):
+        with patch.dict(sys.modules, {'invisible_core': None}), \
+             self.assertNoLogs(level='WARNING'):
+            geo._load_resolver()

@@ -14,13 +14,14 @@ import fnmatch
 import json
 from dataclasses import dataclass, field
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from selenium.common import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 
 from detection import TURNSTILE_SELECTORS
 from dtos import V1RequestBase
-from engines.chrome_engine import ChromeEngine
+from engines.chrome_engine import _PAGE_STATE_SCRIPT, _SETTLE_POLL_SECONDS, ChromeEngine
 from engines.stealth_engine import StealthEngine
 
 # A cookie as the site would set it, before either browser's dialect is applied.
@@ -34,6 +35,9 @@ SAMPLE_RESOURCES = {"image": "https://example-site.tld/a.png",
                     "media": "https://example-site.tld/a.mp4",
                     "script": "https://example-site.tld/a.js",
                     "document": "https://example-site.tld/"}
+
+# The host `foreign_cookies` belong to.
+FOREIGN_HOST = "other-site.tld"
 
 LOADED = [("early", "1", 1893456000)]
 AFTER_WAIT = LOADED + [("late", "1", None)]
@@ -68,6 +72,9 @@ class World:
     # The value in the page's Turnstile input, if it has one. A widget the site
     # solved by itself carries one without anybody pressing anything.
     turnstile_token: str = ""
+    # How many reads of that input come back empty first: a widget that passes
+    # by itself fills its token a moment after the page loads.
+    token_empty_reads: int = 0
     challenged_for: int = 0
     # Title reads so far, shared by both fakes so "challenged_for" means the
     # same number of looks on either engine.
@@ -87,6 +94,18 @@ class World:
     extra_pages: list = field(default_factory=list)
     # What the engine actually handed its browser, so a refused cookie shows up.
     cookies_set: list = field(default_factory=list)
+    # (url, html) a site's own script guard moves to once the page has had time
+    # to run its scripts, which is what an engine's settle gives it.
+    moves_to: tuple = None
+    # The host cannot be reached. Playwright's goto raises for that; Chrome at
+    # times shows its own error page instead and lets driver.get return.
+    unreachable: bool = False
+
+    def settle(self):
+        """The page has had its time: a guard that redirects has done so."""
+        if self.moves_to:
+            self.final_url, self.html = self.moves_to
+            self.moves_to = None
 
     def read_title(self) -> str:
         self.looks.append(1)
@@ -94,6 +113,12 @@ class World:
 
     def has(self, selector: str) -> bool:
         return selector in self.selectors and len(self.looks) <= self.challenged_for
+
+    def read_token(self) -> str:
+        if self.token_empty_reads > 0:
+            self.token_empty_reads -= 1
+            return ""
+        return self.turnstile_token
 
     def carries_token(self, selector: str) -> bool:
         """Whether `selector` names a Turnstile input this page still has.
@@ -143,8 +168,14 @@ class _SeleniumDriver:
         self._world = world
         self.waited = False
         self.switch_to = _SwitchTo()
-        self.current_url = world.final_url or world.url
-        self.page_source = world.html
+
+    @property
+    def current_url(self):
+        return self._world.final_url or self._world.url
+
+    @property
+    def page_source(self):
+        return self._world.html
 
     @property
     def title(self):
@@ -160,8 +191,14 @@ class _SeleniumDriver:
         # Selenium accepts a bare cookie and anchors it to the current page.
         self._world.cookies_set.append(cookie)
 
-    def execute_script(self, _script):
-        pass
+    def execute_script(self, script):
+        if script == _PAGE_STATE_SCRIPT:
+            # Polling the page is what gives its scripts time to run.
+            self._world.settle()
+            return [self.current_url, "complete", len(self._world.navigations), 0]
+        if script == "return location.href":
+            return "chrome-error://chromewebdata/" if self._world.unreachable else self.current_url
+        return None
 
     def execute_cdp_cmd(self, cmd, params):
         if cmd == "Network.setBlockedURLs":
@@ -176,13 +213,15 @@ class _SeleniumDriver:
         if by == By.TAG_NAME and value == "html":
             return _HtmlElement()
         if by == By.CSS_SELECTOR and self._world.carries_token(value):
-            return _InputElement(self._world.turnstile_token)
+            return _InputElement(self._world.read_token())
         if by == By.CSS_SELECTOR and self._world.has(value):
             return object()
         raise NoSuchElementException(value)
 
     def find_elements(self, _by, selector):
-        return [object()] if self._world.has(selector) else []
+        # The token input outlasts the challenge markup, as in find_element.
+        found = self._world.has(selector) or self._world.carries_token(selector)
+        return [object()] if found else []
 
     def get_log(self, _kind):
         # The shape Chrome actually writes: a JSON string per entry, wrapping a
@@ -206,12 +245,17 @@ class _SeleniumDriver:
         return self._world.screenshot
 
     def get_cookies(self):
-        # WebDriver reports the active document's cookies only, so the world's
-        # foreign ones are never visible here.
-        source = self._world.cookies_after_wait if self.waited else self._world.cookies_at_load
+        # WebDriver reports the active document's cookies only: the world's own
+        # while the page is on its own host, the foreign ones once it has been
+        # sent to theirs, never both.
+        if urlparse(self.current_url).hostname == FOREIGN_HOST:
+            source, domain = self._world.foreign_cookies, "." + FOREIGN_HOST
+        else:
+            source = self._world.cookies_after_wait if self.waited else self._world.cookies_at_load
+            domain = ".example-site.tld"
         out = []
         for name, value, expiry in source:
-            cookie = {"name": name, "value": value, "domain": ".example-site.tld",
+            cookie = {"name": name, "value": value, "domain": domain,
                       "path": "/", "httpOnly": False, "secure": True}
             if expiry is not None:
                 cookie["expiry"] = expiry
@@ -228,8 +272,10 @@ class ChromeHarness:
 
         def _slept(seconds):
             # Only a real wait counts, as on the stealth side: counting sleep(0)
-            # made "the cookies were read after the wait" true for free.
-            if seconds:
+            # made "the cookies were read after the wait" true for free. The
+            # settle's own polling is not the caller's wait either, as the
+            # stealth settle (a load-state wait) is not.
+            if seconds and seconds != _SETTLE_POLL_SECONDS:
                 driver.waited = True
 
         import utils
@@ -253,16 +299,17 @@ class _PlaywrightContext:
 
     async def cookies(self, urls=None):
         # Playwright's own rule: with no url the whole context comes back, every
-        # domain it has collected; with one, only the cookies that url would be
-        # sent. The context outlives a request here, so the difference is the
+        # domain it has collected; with urls, only the cookies those urls would
+        # be sent. The context outlives a request here, so the difference is the
         # difference between one site's jar and every site the session visited.
         source = (self._page.world.cookies_after_wait if self._page.waited
                   else self._page.world.cookies_at_load)
-        out = [self._cookie(*c, ".example-site.tld") for c in source]
+        jar = ([self._cookie(*c, ".example-site.tld") for c in source]
+               + [self._cookie(*c, "." + FOREIGN_HOST) for c in self._page.world.foreign_cookies])
         if urls is None:
-            out += [self._cookie(*c, ".other-site.tld")
-                    for c in self._page.world.foreign_cookies]
-        return out
+            return jar
+        hosts = {urlparse(u).hostname for u in ([urls] if isinstance(urls, str) else urls)}
+        return [c for c in jar if c["domain"].lstrip(".") in hosts]
 
     async def new_page(self):
         page = _PlaywrightPage(self._page.world)
@@ -287,10 +334,13 @@ class _PlaywrightPage:
         self.world = world
         self.waited = False
         self.closed = False
-        self.url = world.final_url or world.url
         self.context = _PlaywrightContext(self)
         self.main_frame = object()
         self._response_handlers = []
+
+    @property
+    def url(self):
+        return self.world.final_url or self.world.url
 
     async def title(self):
         return self.world.read_title()
@@ -306,6 +356,8 @@ class _PlaywrightPage:
 
     async def goto(self, *_a, **_k):
         self.world.navigations.append(1)
+        if self.world.unreachable:
+            raise Exception("Page.goto: NS_ERROR_UNKNOWN_HOST")
         for handler in self._response_handlers:
             handler(_Response(self))
             # A subresource on the same page: another response, from a frame
@@ -316,6 +368,8 @@ class _PlaywrightPage:
 
     async def wait_for_load_state(self, state=None, timeout=None):
         self.world.settle_waits.append((state, timeout))
+        if state == "networkidle":
+            self.world.settle()
 
     async def screenshot(self):
         return self.world.screenshot
@@ -362,7 +416,7 @@ class _PlaywrightLocator:
         return self
 
     async def input_value(self, timeout=None):
-        return self._world.turnstile_token
+        return self._world.read_token()
 
 
 class _Route:

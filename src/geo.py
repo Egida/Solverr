@@ -30,6 +30,7 @@ import logging
 import os
 import threading
 import time
+import zoneinfo
 from collections import OrderedDict
 from typing import Optional
 from urllib.parse import urlsplit
@@ -69,6 +70,7 @@ _MAX_CACHED_EXITS = 512
 _geo_zones = {}  # BROWSER_GEO tag -> zone or None
 _zone_table_cache = None
 _known_zones_cache = None
+_linked_zones_cache = None
 
 
 def proxy_to_config(proxy: Optional[dict]) -> Optional[dict]:
@@ -338,14 +340,29 @@ def _zone_table() -> dict:
 
 
 def is_known_zone(name: str) -> bool:
-    """Whether the system's timezone table names this zone.
+    """Whether the system's tzdata knows this zone, by its table or by loading it.
 
     Public because config validates BROWSER_TIMEZONE with it. An empty table
     (no tzdata on the host) says nothing, so it accepts anything rather than
-    rejecting every zone.
+    rejecting every zone. The table lists only canonical zones, so a name
+    tzdata keeps as a link (Europe/Oslo, UTC, US/Eastern) is accepted from the
+    system's own zone list, which both browsers accept too.
     """
     zones = _known_zones()
-    return not zones or name in zones
+    return not zones or name in zones or name in _linked_zones()
+
+
+def _linked_zones() -> set:
+    """Every zone name tzdata ships, links included.
+
+    available_timezones() rather than trying ZoneInfo(name): that also loads
+    the posix/ and right/ copies and posixrules, which no browser accepts.
+    localtime and Factory are files there but not places.
+    """
+    global _linked_zones_cache
+    if _linked_zones_cache is None:
+        _linked_zones_cache = zoneinfo.available_timezones() - {'localtime', 'Factory'}
+    return _linked_zones_cache
 
 
 def _known_zones() -> set:
@@ -387,8 +404,25 @@ def container_timezone() -> str:
     """The container's own timezone, which is what a browser gets when nothing
     resolves. FlareSolverr documents TZ as the browser's timezone too, so this
     is the behavior a deployer already expects when there is nothing to derive
-    a zone from."""
-    return (os.environ.get('TZ', '') or '').strip() or 'UTC'
+    a zone from.
+
+    TZ can be a POSIX rule (UTC0, CET-1CEST,...) or a file path, which the C
+    library reads but neither browser accepts as a zone name, so anything the
+    zone check refuses becomes UTC rather than a launch Playwright rejects."""
+    raw = (os.environ.get('TZ', '') or '').strip()
+    if not raw:
+        return 'UTC'
+    if is_known_zone(raw):
+        return raw
+    if raw not in _rejected_tz:
+        _rejected_tz.add(raw)
+        logging.warning("TZ=%r is not a timezone name the browsers accept; they use UTC "
+                        "when no timezone can be worked out. Use a name like Europe/London.", raw)
+    return 'UTC'
+
+
+# Warn once per bad value: this is read whenever a lookup fails.
+_rejected_tz = set()
 
 
 def _cache_seconds() -> int:
@@ -437,8 +471,15 @@ def _load_resolver():
     try:
         from invisible_core import prepare_session_geo, resolve_session_locale
         return prepare_session_geo, resolve_session_locale
-    except Exception:
+    except ModuleNotFoundError:
         logging.debug("geo resolution unavailable, using the container defaults", exc_info=True)
+        return None
+    except Exception:
+        # Installed but reshaped: invisible_core 36 dropped resolve_session_locale.
+        # Quiet here would put every browser on the container's timezone and
+        # en-US with nothing in the log to say why.
+        logging.warning("the installed invisible_core has no usable geo resolvers, so both "
+                        "browsers use TZ and en-US", exc_info=True)
         return None
 
 
@@ -491,9 +532,11 @@ def _from_egress(proxy_config: Optional[dict], pinned_zone: Optional[str] = None
 
 def reset_cache() -> None:
     """Drop resolved zones and the parsed timezone table. For tests."""
-    global _zone_table_cache, _known_zones_cache
+    global _zone_table_cache, _known_zones_cache, _linked_zones_cache
     with _lock:
         _cache.clear()
         _geo_zones.clear()
+        _rejected_tz.clear()
         _zone_table_cache = None
         _known_zones_cache = None
+        _linked_zones_cache = None

@@ -70,6 +70,29 @@ class EngineConformanceTest(unittest.TestCase):
             with self.subTest(engine=harness.name):
                 self.assertEqual(harness.solve(world).url, world.final_url)
 
+    def test_a_page_that_moves_after_load_is_returned_as_it_settled(self):
+        # A site's own script guard checks the browser, then redirects to the
+        # page it was guarding. The document there at load is the guard, which
+        # is not what the caller asked for.
+        for harness in HARNESSES:
+            with self.subTest(engine=harness.name):
+                # One world per engine: settling moves the world's page.
+                world = World(moves_to=("https://example-site.tld/guarded", "<p>guarded</p>"))
+                self.assertEqual(harness.solve(world).response, "<p>guarded</p>")
+
+    def test_a_page_that_moves_after_load_reports_where_it_settled(self):
+        for harness in HARNESSES:
+            with self.subTest(engine=harness.name):
+                world = World(moves_to=("https://example-site.tld/guarded", "<p>guarded</p>"))
+                self.assertEqual(harness.solve(world).url, "https://example-site.tld/guarded")
+
+    def test_an_unreachable_host_fails_the_request(self):
+        # Never "ok" with the browser's own error page as the response.
+        for harness in HARNESSES:
+            with self.subTest(engine=harness.name):
+                with self.assertRaises(Exception):
+                    harness.solve(World(unreachable=True))
+
     def test_an_ordinary_solve_reports_200(self):
         for name, result, _ in self.each():
             with self.subTest(engine=name):
@@ -125,6 +148,17 @@ class EngineConformanceTest(unittest.TestCase):
                               turnstile_token="0.ALREADY-SOLVED")
                 self.assertEqual(harness.solve(world).turnstile_token, "0.ALREADY-SOLVED")
 
+    def test_both_engines_wait_for_a_widget_that_fills_its_token_by_itself(self):
+        # The widget passes on its own a moment after load. Stealth waits for it
+        # as a challenge; Chrome, with no count to press with, has to wait for it
+        # too or the same page answers with a token on one engine only.
+        for harness in HARNESSES:
+            with self.subTest(engine=harness.name):
+                # The widget stays on the page while it fills, as a real one does.
+                world = World(selectors=frozenset(TURNSTILE_SELECTORS), challenged_for=6,
+                              turnstile_token="0.SELF-SOLVED", token_empty_reads=3)
+                self.assertEqual(harness.solve(world).turnstile_token, "0.SELF-SOLVED")
+
     def test_both_engines_report_that_token_on_a_post_too(self):
         # The method decides whether a checkbox can be pressed, not whether a
         # token that is already there can be read.
@@ -156,6 +190,17 @@ class EngineConformanceTest(unittest.TestCase):
                 result = harness.solve(world)
                 self.assertNotIn("other_site_clearance",
                                  [c["name"] for c in result.cookies])
+
+    def test_after_a_redirect_to_another_host_only_its_cookies_are_returned(self):
+        # Chrome reports the document it ended on. Scoping the stealth read to
+        # the requested URL, or to that and the final one together, would also
+        # hand back the first host's cookies.
+        for harness in HARNESSES:
+            with self.subTest(engine=harness.name):
+                world = World(final_url="https://other-site.tld/landed",
+                              foreign_cookies=[("other_site_clearance", "1", None)])
+                self.assertEqual([c["name"] for c in harness.solve(world).cookies],
+                                 ["other_site_clearance"])
 
     def test_both_engines_agree_on_the_cookie_key_set(self):
         seen = {name: sorted({k for c in result.cookies for k in c})

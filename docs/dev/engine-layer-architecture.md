@@ -165,6 +165,10 @@ live-checked.
    the `<html>` element for its staleness wait, the stealth engine dumping HTML and settling on
    networkidle before re-detecting. Those are engine mechanisms rather than a shared order, so
    forcing them into one kernel would have meant a kernel shaped around both engines' internals.
+   The settle-and-look-again half of that expired on 2026-10-13, when Chrome gained a settle of
+   its own (Chrome returned a site's script-guard page where stealth returned the target): the
+   order moved into the spine as `pipeline.settled_verdict` with `Step.SETTLE`, and only how each
+   engine settles (networkidle, or Chrome polling the page's state) stays per engine.
 5. **Sessions.** Done 2026-08-25, with one part of the plan dropped on measurement. The two
    registries were structural twins, nine methods each with the same rules and different payloads,
    and both carried the same expiry race: the busy check and the replacement were separate lock

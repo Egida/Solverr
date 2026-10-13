@@ -147,6 +147,36 @@ class ApproachTest(unittest.TestCase):
         self.assertEqual(taken[0], Step.NAVIGATE)
 
 
+class SettledVerdictTest(unittest.TestCase):
+    """A clean first look lets the page settle and looks again."""
+
+    def settle_then(self, before, after):
+        """Run the kernel on a page titled `before` until it settles, `after` from then.
+
+        Returns (verdict, how many times it settled).
+        """
+        page = {"title": before, "settles": 0}
+
+        def settle(_arg):
+            page["settles"] += 1
+            page["title"] = after
+
+        found, _is_turnstile, _reason = pipeline.run(
+            {Look.TITLE: lambda _a: page["title"], Look.SELECTOR: lambda _s: False,
+             Step.SETTLE: settle},
+            kernel=pipeline.settled_verdict, turnstile_is_a_challenge=True)
+        return found, page["settles"]
+
+    def test_a_challenge_that_appears_while_the_page_settles_is_found(self):
+        self.assertEqual(self.settle_then("Example", CHALLENGE_TITLES[0])[0], Verdict.CHALLENGE)
+
+    def test_a_challenge_on_the_first_look_is_acted_on_without_settling(self):
+        self.assertEqual(self.settle_then(CHALLENGE_TITLES[0], CHALLENGE_TITLES[0])[1], 0)
+
+    def test_a_clean_page_settles_once(self):
+        self.assertEqual(self.settle_then("Example", "Example")[1], 1)
+
+
 class SolveDeadlineTest(unittest.TestCase):
     """One formula, shared, rather than the same arithmetic in both engines."""
 

@@ -13,6 +13,7 @@ docs/dev/upstream-sync.md.
 """
 import json
 import logging
+import re
 import time
 from datetime import timedelta
 from typing import Optional
@@ -51,6 +52,20 @@ _TURNSTILE_SELECTOR = ", ".join(TURNSTILE_SELECTORS)
 # (_NETWORKIDLE_MS), and only a request that asked for tabs_till_verify can wait
 # it out on a page that turns out to have no widget at all.
 _WIDGET_RENDER_SECONDS = 5
+
+# The settle after a clean first look. Chrome has no networkidle, so a page
+# counts as settled once the same state reads back on _SETTLE_QUIET_POLLS polls
+# in a row: 0.5s, Playwright's own networkidle window. The cap is the stealth
+# engine's _NETWORKIDLE_MS. Counted in polls rather than clock time so a
+# patched sleep cannot turn the wait into a busy loop.
+_SETTLE_POLL_SECONDS = 0.1
+_SETTLE_QUIET_POLLS = 5
+_SETTLE_MAX_POLLS = 50
+# timeOrigin changes with every new document, so a script that reloads the
+# same URL still reads as a move. The resource count stands in for network
+# activity, which Selenium cannot see without the performance log.
+_PAGE_STATE_SCRIPT = ("return [location.href, document.readyState, performance.timeOrigin, "
+                      "performance.getEntriesByType('resource').length]")
 
 # What disableMedia blocks: images, stylesheets and fonts, which is what the
 # README promises and what the stealth engine blocks by resource type. Chrome
@@ -206,40 +221,38 @@ class ChromeEngine(Engine):
         pipeline.run({pipeline.Step.NAVIGATE: navigate,
                       pipeline.Step.SET_COOKIES: set_cookies},
                      kernel=pipeline.approach, req=req)
+        _raise_on_error_page(driver)
 
         # After the cookie reload, not before it: the reload replaces the document,
         # so a token resolved first described a page that no longer exists by the
         # time it was returned. POST is left out, as it was before.
-        if method != "POST" and req.tabs_till_verify is not None:
+        presses = method != "POST" and req.tabs_till_verify is not None
+        if presses:
             deadline = budget.solve_deadline(started, timeout)
             turnstile_token = _resolve_turnstile_captcha(driver, req.tabs_till_verify, deadline)
-        else:
-            # No count, so there is no way to press the checkbox, but a widget
-            # the page solved by itself still carries a token and the stealth
-            # engine reports it. POST is not excluded here the way pressing is:
-            # reading costs nothing and the stealth engine reads it either way,
-            # so excluding it would make the field mean two things again.
-            # Read-only, and without the grace period a late widget gets above:
-            # that wait is only worth paying when there is a count to press with.
-            turnstile_token = _turnstile_token_value(driver)
 
         # wait for the page
         if utils.get_config_log_html():
             logging.debug(f"Response HTML:\n{driver.page_source}")
-        html_element = driver.find_element(By.TAG_NAME, "html")
 
         # The verdict rule is shared with the stealth engine (pipeline.py); only
-        # the two looks below are Chrome's. Whether a bare widget counts as a
-        # challenge is the same fact as whether this engine can press one, so it
-        # is read off the capability rather than written out a second time:
-        # without a tabs_till_verify count there is no way to reach the checkbox,
-        # and treating the widget as a challenge would spend the whole budget in
-        # a wait loop that cannot win.
+        # the looks and the settle below are Chrome's. Whether a bare widget
+        # counts as a challenge is the same fact as whether this engine can press
+        # one, so it is read off the capability rather than written out a second
+        # time: without a tabs_till_verify count there is no way to reach the
+        # checkbox, and treating the widget as a challenge would spend the whole
+        # budget in a wait loop that cannot win.
         found, _is_turnstile, reason = pipeline.run({
             pipeline.Look.TITLE: lambda _arg: driver.title,
             pipeline.Look.SELECTOR: lambda selector: bool(
                 driver.find_elements(By.CSS_SELECTOR, selector)),
-        }, turnstile_is_a_challenge=self.presses_checkbox_unaided)
+            pipeline.Step.SETTLE: lambda _arg: _settle(
+                driver, budget.solve_deadline(started, timeout)),
+        }, kernel=pipeline.settled_verdict,
+            turnstile_is_a_challenge=self.presses_checkbox_unaided)
+        # After the verdict, because the settle may have moved the page: the
+        # redirect wait below watches this element go stale.
+        html_element = driver.find_element(By.TAG_NAME, "html")
 
         if found is pipeline.Verdict.DENIED:
             raise Exception(pipeline.BLOCKED_MESSAGE)
@@ -292,6 +305,16 @@ class ChromeEngine(Engine):
             logging.info("Challenge not detected!")
             message = "Challenge not detected!"
 
+        if not presses:
+            # No count, so there is no way to press the checkbox, but a widget
+            # the page solves by itself fills its token a moment after load, and
+            # the stealth engine waits for it and reports it. Read-only, after the
+            # settle so a late widget is in the DOM. POST is not excluded here the
+            # way pressing is: the stealth engine reads it either way, so
+            # excluding it would make the field mean two things again.
+            turnstile_token = _await_turnstile_token(
+                driver, budget.solve_deadline(started, timeout))
+
         # Order and field rules live in assembly.py, shared with the stealth
         # engine. Only the reads below are Chrome's, and none of them is a rule.
         return assembly.run(req, message, {
@@ -304,6 +327,48 @@ class ChromeEngine(Engine):
             assembly.Read.SCREENSHOT: lambda: driver.get_screenshot_as_png(),
             assembly.Read.COOKIES: lambda: driver.get_cookies(),
         })
+
+
+def _raise_on_error_page(driver: WebDriver) -> None:
+    """Fail the way a failed driver.get() does when Chrome showed its own error page.
+
+    Usually driver.get() raises net::ERR_..., but measured against an unresolvable
+    host it returned normally 4 times in 12, with Chrome's neterror page in place,
+    and that page was answered as "ok". Playwright's goto() always raises, so the
+    stealth engine never did this. driver.current_url still names the requested
+    URL there; only the document's own location says chrome-error://.
+    """
+    try:
+        location = driver.execute_script("return location.href") or ""
+    except Exception:
+        return
+    if location.startswith("chrome-error://"):
+        code = re.search(r"net::ERR_[A-Z_]+|ERR_[A-Z_]+", driver.page_source or "")
+        raise Exception(f"Navigation failed: {code.group(0) if code else 'Chrome error page'}")
+
+
+def _settle(driver: WebDriver, deadline: float) -> None:
+    """Wait until the page stops loading and moving, or the cap or deadline.
+
+    A read that fails is a document being replaced, so it never counts as quiet.
+    """
+    last, quiet = None, 0
+    for _ in range(_SETTLE_MAX_POLLS):
+        if time.monotonic() >= deadline:
+            return
+        try:
+            state = driver.execute_script(_PAGE_STATE_SCRIPT)
+        except Exception:
+            state = None
+        if state is not None and state == last and state[1] == "complete":
+            quiet += 1
+            if quiet >= _SETTLE_QUIET_POLLS:
+                return
+        else:
+            quiet = 0
+        last = state
+        time.sleep(_SETTLE_POLL_SECONDS)
+    logging.debug("page still moving after the settle cap")
 
 
 def _response_headers(driver: WebDriver, page_url: str) -> dict:
@@ -455,6 +520,23 @@ def _turnstile_token_value(driver: WebDriver) -> Optional[str]:
     except (NoSuchElementException, StaleElementReferenceException):
         logging.debug("turnstile token read raced a navigation", exc_info=True)
         return None
+
+
+def _await_turnstile_token(driver: WebDriver, deadline: float) -> Optional[str]:
+    """The token a widget on the page fills by itself, waiting up to
+    _WIDGET_RENDER_SECONDS for it, or None at once when there is no widget.
+
+    A widget that needs a press never fills, so that is what the wait costs on
+    one. Counted in polls for the same reason as `_settle`.
+    """
+    if not driver.find_elements(By.CSS_SELECTOR, _TURNSTILE_SELECTOR):
+        return None
+    for _ in range(int(_WIDGET_RENDER_SECONDS / _SETTLE_POLL_SECONDS)):
+        token = _turnstile_token_value(driver)
+        if token or time.monotonic() >= deadline:
+            return token
+        time.sleep(_SETTLE_POLL_SECONDS)
+    return _turnstile_token_value(driver)
 
 
 def _get_turnstile_token(driver: WebDriver, tabs: int, deadline: float) -> Optional[str]:

@@ -77,7 +77,7 @@ An example response, shortened:
 - **`solution.cookies`** are the browser's cookies for the page.
 - **`solution.userAgent`** is the browser's user agent. If you reuse the cookies in your own requests, send this user agent with them. Cloudflare challenges again when the user agent and `cf_clearance` do not match.
 - **`solution.headers`** is empty unless `RESPONSE_HEADERS=true`, which fills it on both engines or neither. Empty is what FlareSolverr returns, so it is the default.
-- **`solution.turnstile_token`** is the token the page's own Turnstile widget holds when the page is read. The Camoufox engine waits for the widget to fill one, because it can press the checkbox itself. The Chrome engine reports one only if it is already there, unless the request sends `tabs_till_verify`.
+- **`solution.turnstile_token`** is the token the page's own Turnstile widget holds when the page is read. Both engines wait up to a few seconds for a widget that fills its token by itself. A widget that needs its checkbox pressed is pressed by the Camoufox engine on its own, and by the Chrome engine only when the request sends `tabs_till_verify`. Without it, such a widget costs Chrome up to 5 seconds of waiting before the page comes back without a token.
 - **`solution.contentType`** appears only when the stealth engine returns a PDF. See [PDFs](#pdfs).
 
 ### Turnstile checkboxes
