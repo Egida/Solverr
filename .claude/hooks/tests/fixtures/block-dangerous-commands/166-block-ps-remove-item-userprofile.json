@@ -1,0 +1,12 @@
+{
+  "name": "block a recursive delete of USERPROFILE",
+  "stdin": {
+    "tool_input": {
+      "command": "Remove-Item -Recurse -Force $env:USERPROFILE"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "recursive PowerShell delete"
+  ]
+}

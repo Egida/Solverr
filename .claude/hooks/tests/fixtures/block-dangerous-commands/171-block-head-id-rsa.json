@@ -1,0 +1,12 @@
+{
+  "name": "block head of an ssh key",
+  "stdin": {
+    "tool_input": {
+      "command": "head -5 ~/.ssh/id_rsa"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "secret"
+  ]
+}

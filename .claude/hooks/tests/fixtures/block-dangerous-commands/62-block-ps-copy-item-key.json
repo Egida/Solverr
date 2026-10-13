@@ -1,0 +1,13 @@
+{
+  "name": "block PowerShell Copy-Item copying a key out",
+  "stdin": {
+    "tool_input": {
+      "command": "Copy-Item server.key C:/tmp/k"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}

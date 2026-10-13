@@ -1,0 +1,12 @@
+{
+  "name": "a hook-script deny wins over a git-hook ask in the same command",
+  "stdin": {
+    "tool_input": {
+      "command": "echo x >> .githooks/pre-commit; rm .claude/hooks/notify.sh"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny"
+  ]
+}

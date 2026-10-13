@@ -1,0 +1,13 @@
+{
+  "name": "allow a plain commit",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"fix(stealth): keep the cookie order on reload\""
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

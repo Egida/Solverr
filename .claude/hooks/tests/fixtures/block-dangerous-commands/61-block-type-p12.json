@@ -1,0 +1,13 @@
+{
+  "name": "block type reading a p12 certificate",
+  "stdin": {
+    "tool_input": {
+      "command": "type cert.p12"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}

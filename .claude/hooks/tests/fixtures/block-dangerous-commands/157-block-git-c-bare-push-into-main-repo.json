@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push through git -C into a repo on main",
+  "stdin": {
+    "tool_input": {
+      "command": "git -C ../main-repo push origin HEAD"
+    },
+    "cwd": "@FX@/feature-repo"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

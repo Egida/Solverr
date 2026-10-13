@@ -1,0 +1,13 @@
+{
+  "name": "allow staging a git hook edit",
+  "stdin": {
+    "tool_input": {
+      "command": "git add .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

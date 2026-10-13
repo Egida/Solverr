@@ -1,0 +1,13 @@
+{
+  "name": "allow git log",
+  "stdin": {
+    "tool_input": {
+      "command": "git log --oneline -10"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

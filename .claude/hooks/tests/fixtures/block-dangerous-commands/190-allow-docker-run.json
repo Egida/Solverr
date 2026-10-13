@@ -1,0 +1,13 @@
+{
+  "name": "allow a named docker run",
+  "stdin": {
+    "tool_input": {
+      "command": "docker run -d --name solverr-livetest -p 8291:8191 -e LOG_LEVEL=debug solverr:livetest"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

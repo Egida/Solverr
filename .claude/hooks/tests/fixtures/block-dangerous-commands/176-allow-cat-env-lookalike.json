@@ -1,0 +1,13 @@
+{
+  "name": "allow cat of a file whose name only contains .env",
+  "stdin": {
+    "tool_input": {
+      "command": "cat docs/development.env.md"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

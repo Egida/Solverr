@@ -1,0 +1,12 @@
+{
+  "name": "block a secret read inside bash -c",
+  "stdin": {
+    "tool_input": {
+      "command": "bash -c \"ls; cat .env\""
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "secret"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "allow the compile check",
+  "stdin": {
+    "tool_input": {
+      "command": "uv run --no-project python -m py_compile src/*.py src/engines/*.py"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

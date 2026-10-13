@@ -1,0 +1,9 @@
+{
+  "name": "allow a commit message that names type .env as prose",
+  "stdin": {
+    "tool_input": {
+      "command": "git commit -m \"docs: type .env is refused\""
+    }
+  },
+  "expect_exit": 0
+}

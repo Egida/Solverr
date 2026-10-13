@@ -1,0 +1,13 @@
+{
+  "name": "allow an env-prefixed docker exec",
+  "stdin": {
+    "tool_input": {
+      "command": "MSYS_NO_PATHCONV=1 docker exec solverr-livetest ls /app"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

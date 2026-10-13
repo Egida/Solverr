@@ -1,0 +1,12 @@
+{
+  "name": "block cat of a pem certificate",
+  "stdin": {
+    "tool_input": {
+      "command": "cat certs/server.pem"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "secret"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "ask before Rename-Item on a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "Rename-Item .githooks/pre-commit x"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

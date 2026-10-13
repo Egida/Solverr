@@ -1,0 +1,13 @@
+{
+  "name": "allow git status",
+  "stdin": {
+    "tool_input": {
+      "command": "git status"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push after a git -C that only applied to another command",
+  "stdin": {
+    "tool_input": {
+      "command": "git -C ../feature-repo status && git push"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

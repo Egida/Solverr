@@ -1,0 +1,13 @@
+{
+  "name": "allow a /v1 request to the local server",
+  "stdin": {
+    "tool_input": {
+      "command": "curl -s localhost:8191/v1 -H 'Content-Type: application/json' -d '{\"cmd\":\"sessions.list\"}'"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

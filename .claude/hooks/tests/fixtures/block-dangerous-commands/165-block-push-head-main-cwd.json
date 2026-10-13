@@ -1,0 +1,13 @@
+{
+  "name": "block a push of HEAD from a session cwd on main",
+  "stdin": {
+    "tool_input": {
+      "command": "git push -u origin HEAD"
+    },
+    "cwd": "@FX@/main-repo"
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

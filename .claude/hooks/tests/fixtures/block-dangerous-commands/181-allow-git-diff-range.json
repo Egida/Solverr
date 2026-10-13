@@ -1,0 +1,13 @@
+{
+  "name": "allow git diff of the branch",
+  "stdin": {
+    "tool_input": {
+      "command": "git diff --stat main...HEAD"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

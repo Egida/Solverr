@@ -1,0 +1,13 @@
+{
+  "name": "allow gh pr create against main",
+  "stdin": {
+    "tool_input": {
+      "command": "gh pr create --title \"feat: reap idle browsers\" --body \"Adds the reaper.\" --base main"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": [
+    "deny",
+    "ask"
+  ]
+}

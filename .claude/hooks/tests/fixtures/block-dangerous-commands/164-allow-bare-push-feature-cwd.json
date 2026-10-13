@@ -1,0 +1,10 @@
+{
+  "name": "allow a bare push from a session cwd on a feature branch",
+  "stdin": {
+    "tool_input": {
+      "command": "git push"
+    },
+    "cwd": "@FX@/feature-repo"
+  },
+  "expect_exit": 0
+}

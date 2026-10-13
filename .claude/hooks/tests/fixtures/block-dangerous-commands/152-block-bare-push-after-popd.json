@@ -1,0 +1,13 @@
+{
+  "name": "block a bare push on main after a popd the hook cannot follow",
+  "stdin": {
+    "cwd": "@FX@/main-repo",
+    "tool_input": {
+      "command": "popd; git push"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "you are on 'main'"
+  ]
+}

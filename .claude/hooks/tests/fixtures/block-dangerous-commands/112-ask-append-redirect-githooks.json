@@ -1,0 +1,12 @@
+{
+  "name": "ask before an append redirect into a git hook source",
+  "stdin": {
+    "tool_input": {
+      "command": "echo x >> .githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

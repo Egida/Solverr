@@ -1,0 +1,12 @@
+{
+  "name": "ask before editing a git hook source",
+  "stdin": {
+    "tool_input": {
+      "file_path": ".githooks/pre-commit"
+    }
+  },
+  "expect_exit": 0,
+  "expect_stdout_contains": [
+    "\"ask\""
+  ]
+}

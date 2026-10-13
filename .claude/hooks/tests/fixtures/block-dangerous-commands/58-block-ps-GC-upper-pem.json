@@ -1,0 +1,13 @@
+{
+  "name": "block PowerShell GC alias, upper-case, reading a key",
+  "stdin": {
+    "tool_input": {
+      "command": "GC Server.PEM"
+    }
+  },
+  "expect_exit": 2,
+  "expect_stdout_contains": [
+    "deny",
+    "secret file"
+  ]
+}
