@@ -48,6 +48,19 @@ Common on low-memory machines and in Proxmox LXC containers.
 
 On a Debian host, also check `libseccomp2`: see [Debian hosts](installation.md#debian-hosts).
 
+## The container writes a lot to disk
+
+Every browser gets a fresh profile in `/tmp`, which is on the disk. Measured per browser: a Chrome session holds about 10 MB, a Camoufox session about 130 MB, and each request solved without a session writes up to about 60 MB that is deleted when it finishes.
+
+To keep all of it in memory instead, put `/tmp` on a tmpfs in `docker-compose.yml`:
+
+```yaml
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+```
+
+Size it for the sessions you keep open, since a full `/tmp` makes browsers fail to start: about 130 MB for each Camoufox session and 10 MB for each Chrome session, plus 60 MB for each request solved at the same moment. `1g` fits about six Camoufox sessions. With `SESSION_MAX` at its default of 20, allow about 3 GB, or lower `SESSION_MAX`. The tmpfs uses the machine's memory only as it fills.
+
 ## Camoufox or Firefox errors on ARM or a NAS
 
 Support for the stealth engine on ARM and NAS devices is best-effort. If it will not start, set `STEALTH_ENGINE=false` to run with Chrome only.

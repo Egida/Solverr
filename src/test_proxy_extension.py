@@ -86,32 +86,50 @@ class BrowserLanguageFlagsTest(unittest.TestCase):
     language of "de-DE, de" until the tag was passed in its own flag.
     """
 
-    def flags(self):
-        seen = {}
-
-        def chrome(options=None, **_kwargs):
-            seen['args'] = list(options.arguments)
-            raise Exception("not launching a browser in a test")
-
-        with patch.object(utils, 'get_chrome_exe_path', return_value="/bin/chromium"), \
-                patch.object(utils, 'get_chrome_major_version', return_value="151"), \
-                patch.object(utils, 'start_xvfb_display'), \
-                patch.object(geo, 'browser_language', return_value="de-DE"), \
-                patch.object(geo, 'browser_timezone', return_value="UTC"), \
-                patch('undetected_chromedriver.Chrome', side_effect=chrome):
-            try:
-                utils.get_webdriver()
-            except Exception:
-                pass
-        return seen['args']
-
     def test_the_header_carries_the_tag_and_its_base(self):
-        self.assertIn('--accept-lang=de-DE, de', self.flags())
+        self.assertIn('--accept-lang=de-DE, de', _launch_flags())
 
     def test_the_ui_language_is_one_tag(self):
         # The last "lang" argument is the one the driver reads.
-        langs = [a for a in self.flags() if 'lang' in a]
+        langs = [a for a in _launch_flags() if 'lang' in a]
         self.assertEqual(langs[-1], '--lang=de-DE')
+
+
+class DiskAndFeatureFlagsTest(unittest.TestCase):
+    """What the launch switches off in Chrome, and that none of it is lost."""
+
+    def test_component_updates_are_off(self):
+        self.assertIn('--disable-component-update', _launch_flags())
+
+    def test_every_disabled_feature_travels_in_one_switch(self):
+        # Chrome keeps only the last --disable-features it is given.
+        switches = [a for a in _launch_flags() if a.startswith('--disable-features=')]
+        self.assertEqual(len(switches), 1)
+
+    def test_the_on_device_model_download_is_off(self):
+        switch = next(a for a in _launch_flags() if a.startswith('--disable-features='))
+        self.assertIn('OptimizationGuideOnDeviceModel', switch.split('=', 1)[1].split(','))
+
+
+def _launch_flags():
+    """The arguments get_webdriver hands Chrome, with no browser launched."""
+    seen = {}
+
+    def chrome(options=None, **_kwargs):
+        seen['args'] = list(options.arguments)
+        raise Exception("not launching a browser in a test")
+
+    with patch.object(utils, 'get_chrome_exe_path', return_value="/bin/chromium"), \
+            patch.object(utils, 'get_chrome_major_version', return_value="151"), \
+            patch.object(utils, 'start_xvfb_display'), \
+            patch.object(geo, 'browser_language', return_value="de-DE"), \
+            patch.object(geo, 'browser_timezone', return_value="UTC"), \
+            patch('undetected_chromedriver.Chrome', side_effect=chrome):
+        try:
+            utils.get_webdriver()
+        except Exception:
+            pass
+    return seen['args']
 
 
 class ExtensionCreationFailureTest(unittest.TestCase):

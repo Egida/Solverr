@@ -4,6 +4,14 @@ Solverr follows its own [Semantic Versioning](https://semver.org/), starting at 
 
 ## [Unreleased]
 
+### Fixes
+
+- **A Chrome session no longer writes about 85 MB of browser downloads to disk, and the compose file now shows an optional tmpfs that keeps every browser profile in memory.** Sizing is in the troubleshooting guide.
+
+### Other
+
+- Chrome now starts with its built-in AI features switched off, as FlareSolverr does.
+
 ## [1.9.0]
 
 ### Changes

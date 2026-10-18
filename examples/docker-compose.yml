@@ -26,4 +26,6 @@ services:
     environment:
       - TZ=UTC                                   # optional: your timezone, e.g. Europe/London (log times)
     shm_size: 512mb                              # keep: the browsers need the extra shared memory
+    # tmpfs:                                     # optional: browser profiles in memory, not on disk
+    #   - /tmp:size=1g,mode=1777                 # size it for your sessions, see docs/troubleshooting.md
     restart: unless-stopped                      # start again after a reboot

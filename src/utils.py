@@ -168,7 +168,22 @@ def get_webdriver(proxy: dict = None) -> WebDriver:
     disabled_features = [
         # disable breaking popup
         "LocalNetworkAccessChecks",
+        # disable AI model download (FlareSolverr 4df093c). Three of these also
+        # remove the Translator, LanguageDetector and LanguageModel globals a
+        # stock Chrome exposes to pages; taken anyway, on the owner's ruling.
+        "OptimizationGuideOnDeviceModel",
+        "GlicActor", "GlicActorUi", "PromptAPIForGeminiNano", "PromptAPIX",
+        "PromptAPINoTranslation", "SummarizationAPIForGeminiNano", "WriterAPIForGeminiNano",
+        "TranslationAPI", "LanguageDetectionAPI", "AIPromptAPI", "AIRewriteAPI",
+        "AIWritingAssistant", "AIGenerativeSuggestions", "AIGeneratedFlags",
+        "AICompositionFeature", "HistoryAI", "TabOrganizer", "SmartSuggestion",
     ]
+    # A browser that lives past its first minute downloads about 85 MB of
+    # components (text to speech, suggestion models) into its profile in /tmp,
+    # the disk writes FlareSolverr/FlareSolverr#1791 reported. A fresh profile
+    # has none installed for that first minute, so a request solved inside it
+    # already runs without them; this keeps a long-lived session the same.
+    options.add_argument('--disable-component-update')
 
     # Always set, and shared with the stealth engine, so one request does not
     # change language depending on which engine answered it. Sent as the
