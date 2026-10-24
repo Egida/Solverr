@@ -4,6 +4,8 @@ Solverr follows its own [Semantic Versioning](https://semver.org/), starting at 
 
 ## [Unreleased]
 
+## [1.9.1]
+
 ### Fixes
 
 - **A proxy username or password containing a quote now works with the Chrome engine; it used to make Chrome skip the proxy without saying so, and could run script inside the browser.**
