@@ -7,7 +7,10 @@ where proxy_to_config lives.
 
 Run: PYTHONPATH=src uv run --no-project python -m unittest test_proxy_extension
 """
+import json
 import os
+import re
+import shutil
 import unittest
 from unittest.mock import patch
 
@@ -130,6 +133,36 @@ def _launch_flags():
         except Exception:
             pass
     return seen['args']
+
+
+class ExtensionScriptEscapingTest(unittest.TestCase):
+    """Proxy fields from a /v1 request reach background.js as literals, never as code.
+
+    The extension's service worker holds <all_urls> host permissions, so a
+    password that closed its string literal ran script with them.
+    """
+
+    HOSTILE = 'x", y: alert(1), z: "\\'
+
+    def literal(self, proxy, field):
+        path = utils.create_proxy_extension(proxy)
+        try:
+            with open(os.path.join(path, "background.js")) as f:
+                script = f.read()
+        finally:
+            shutil.rmtree(path, ignore_errors=True)
+        raw = re.search(r"^\s*%s: (.*?),?$" % field, script, re.MULTILINE).group(1)
+        return json.loads(raw)
+
+    def test_each_credential_reads_back_as_the_value_sent(self):
+        for field in ("username", "password"):
+            with self.subTest(field=field):
+                proxy = {"url": "http://p:1", "username": "u", "password": "p", field: self.HOSTILE}
+                self.assertEqual(self.literal(proxy, field), self.HOSTILE)
+
+    def test_the_host_reads_back_as_the_value_sent(self):
+        proxy = {"url": 'http://ho"st:1', "username": "u", "password": "p"}
+        self.assertEqual(self.literal(proxy, "host"), 'ho"st')
 
 
 class ExtensionCreationFailureTest(unittest.TestCase):
