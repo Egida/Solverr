@@ -37,4 +37,9 @@ services:
       # - PASSTHROUGH_TIMEOUT_MS=${PASSTHROUGH_TIMEOUT_MS:-90000}
     # Chromium is stable with more shared memory; Camoufox benefits too.
     shm_size: 512mb
+    # Optional: keep browser profiles in memory instead of writing them to disk.
+    # Size it for your sessions (see docs/troubleshooting.md); a full /tmp makes
+    # browsers fail to start.
+    # tmpfs:
+    #   - /tmp:size=1g,mode=1777
     restart: unless-stopped

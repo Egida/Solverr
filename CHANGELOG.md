@@ -4,6 +4,18 @@ Solverr follows its own [Semantic Versioning](https://semver.org/), starting at 
 
 ## [Unreleased]
 
+## [1.9.1]
+
+### Fixes
+
+- **A proxy username or password containing a quote now works with the Chrome engine; it used to make Chrome skip the proxy without saying so, and could run script inside the browser.**
+- **A Chrome session no longer writes about 85 MB of browser downloads to disk, and the compose file now shows an optional tmpfs that keeps every browser profile in memory.** Sizing is in the troubleshooting guide.
+
+### Other
+
+- Chrome now starts with its built-in AI features switched off, as FlareSolverr does.
+- Chrome's checkbox key presses now vary their timing slightly, as FlareSolverr's do.
+
 ## [1.9.0]
 
 ### Changes
